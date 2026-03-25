@@ -1,0 +1,5 @@
+{
+  "name": "CashMind (管钱花)",
+  "description": "An automatic expense tracker with AI insights and iOS Shortcuts integration.",
+  "requestFramePermissions": []
+}
