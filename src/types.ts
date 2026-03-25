@@ -14,3 +14,9 @@ export type Category = {
   icon: string;
   color: string;
 };
+
+export type Budget = {
+  id: string;
+  amount: number;
+  month: string; // YYYY-MM
+};

@@ -4,14 +4,18 @@ import Add from './components/Add';
 import Stats from './components/Stats';
 import Settings from './components/Settings';
 import * as Icons from 'lucide-react';
-import { Transaction } from './types';
+import { Transaction, Budget } from './types';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from './components/Toast';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     // Initialize dark mode
@@ -23,15 +27,18 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
 
-    // Fetch transactions
-    fetch('/api/transactions')
-      .then(res => res.json())
-      .then(data => {
-        setTransactions(data);
+    // Fetch transactions and budgets
+    Promise.all([
+      fetch('/api/transactions').then(res => res.json()),
+      fetch('/api/budgets').then(res => res.json())
+    ])
+      .then(([txData, budgetData]) => {
+        setTransactions(txData);
+        setBudgets(budgetData);
         setIsLoading(false);
       })
       .catch(err => {
-        console.error('Failed to fetch transactions:', err);
+        console.error('Failed to fetch data:', err);
         setIsLoading(false);
       });
   }, []);
@@ -44,10 +51,29 @@ export default function App() {
         body: JSON.stringify(t),
       });
       const newTx = await res.json();
-      setTransactions((prev) => [newTx, ...prev]);
+      setTransactions((prev) => [newTx, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setActiveTab('home');
+      showToast('记录添加成功', 'success');
     } catch (err) {
       console.error('Failed to add transaction:', err);
+      showToast('记录添加失败', 'error');
+    }
+  };
+
+  const handleUpdateTransaction = async (t: Transaction) => {
+    try {
+      await fetch(`/api/transactions/${t.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(t),
+      });
+      setTransactions((prev) => prev.map(tx => tx.id === t.id ? t : tx).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setEditingTransaction(null);
+      setActiveTab('home');
+      showToast('记录更新成功', 'success');
+    } catch (err) {
+      console.error('Failed to update transaction:', err);
+      showToast('记录更新失败', 'error');
     }
   };
 
@@ -55,31 +81,38 @@ export default function App() {
     try {
       await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
       setTransactions((prev) => prev.filter((t) => t.id !== id));
+      showToast('记录已删除', 'success');
     } catch (err) {
       console.error('Failed to delete transaction:', err);
+      showToast('记录删除失败', 'error');
     }
+  };
+
+  const handleEditRequest = (t: Transaction) => {
+    setEditingTransaction(t);
+    setActiveTab('add');
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <Home transactions={transactions} onDelete={handleDeleteTransaction} />;
+        return <Home transactions={transactions} onDelete={handleDeleteTransaction} onEdit={handleEditRequest} budgets={budgets} />;
       case 'add':
-        return <Add onAdd={handleAddTransaction} />;
+        return <Add onAdd={handleAddTransaction} onUpdate={handleUpdateTransaction} initialData={editingTransaction} onCancelEdit={() => { setEditingTransaction(null); setActiveTab('home'); }} />;
       case 'stats':
         return <Stats transactions={transactions} />;
       case 'settings':
-        return <Settings />;
+        return <Settings budgets={budgets} onUpdateBudgets={setBudgets} />;
       default:
-        return <Home transactions={transactions} onDelete={handleDeleteTransaction} />;
+        return <Home transactions={transactions} onDelete={handleDeleteTransaction} onEdit={handleEditRequest} budgets={budgets} />;
     }
   };
 
   const tabs = [
-    { id: 'home', icon: 'Home', label: '流水' },
-    { id: 'add', icon: 'PlusCircle', label: '补记' },
-    { id: 'stats', icon: 'PieChart', label: '洞察' },
-    { id: 'settings', icon: 'Settings', label: '设置' },
+    { id: 'home', icon: 'Home', label: '流水', onClick: () => { setEditingTransaction(null); setActiveTab('home'); } },
+    { id: 'add', icon: 'PlusCircle', label: '补记', onClick: () => { setEditingTransaction(null); setActiveTab('add'); } },
+    { id: 'stats', icon: 'PieChart', label: '洞察', onClick: () => { setEditingTransaction(null); setActiveTab('stats'); } },
+    { id: 'settings', icon: 'Settings', label: '设置', onClick: () => { setEditingTransaction(null); setActiveTab('settings'); } },
   ];
 
   return (
@@ -128,7 +161,7 @@ export default function App() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={tab.onClick}
                   className="flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors"
                 >
                   <Icon

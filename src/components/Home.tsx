@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Transaction, Category } from '../types';
+import { Transaction, Category, Budget } from '../types';
 import { MOCK_CATEGORIES } from '../data';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -10,20 +10,28 @@ import { motion, AnimatePresence } from 'motion/react';
 interface HomeProps {
   transactions: Transaction[];
   onDelete?: (id: string) => void;
+  onEdit?: (t: Transaction) => void;
+  budgets?: Budget[];
 }
 
-export default function Home({ transactions, onDelete }: HomeProps) {
+export default function Home({ transactions, onDelete, onEdit, budgets = [] }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const currentBudget = budgets.find(b => b.month === currentMonth)?.amount || 0;
+
   const totalIncome = transactions
-    .filter((t) => t.type === 'income')
+    .filter((t) => t.type === 'income' && t.date.startsWith(currentMonth))
     .reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = transactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === 'expense' && t.date.startsWith(currentMonth))
     .reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
+
+  const budgetProgress = currentBudget > 0 ? Math.min((totalExpense / currentBudget) * 100, 100) : 0;
+  const isOverBudget = currentBudget > 0 && totalExpense > currentBudget;
 
   const getCategory = (id: string) => MOCK_CATEGORIES.find((c) => c.id === id) || MOCK_CATEGORIES[0];
 
@@ -102,6 +110,28 @@ export default function Home({ transactions, onDelete }: HomeProps) {
             {netBalance >= 0 ? '+' : '-'}{Math.abs(netBalance).toFixed(2)}
           </span>
         </div>
+
+        {currentBudget > 0 && (
+          <div className="mb-8 px-2">
+            <div className="flex justify-between text-xs mb-2">
+              <span className="text-gray-500 dark:text-gray-400">本月预算</span>
+              <span className={cn("font-medium", isOverBudget ? "text-red-500" : "text-gray-700 dark:text-gray-300")}>
+                ¥{totalExpense.toFixed(2)} / ¥{currentBudget.toFixed(2)}
+              </span>
+            </div>
+            <div className="h-2 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${budgetProgress}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className={cn(
+                  "h-full rounded-full",
+                  isOverBudget ? "bg-red-500" : "bg-indigo-500 dark:bg-indigo-400"
+                )}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-between items-center bg-white/30 dark:bg-white/5 backdrop-blur-xl saturate-200 rounded-2xl p-4 border border-white/40 dark:border-white/10 shadow-sm">
           <div className="flex items-center gap-3">
@@ -279,7 +309,10 @@ export default function Home({ transactions, onDelete }: HomeProps) {
                 <div className="space-y-3">
                   <button 
                     className="w-full py-3.5 bg-white/50 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 rounded-2xl font-medium transition-colors flex items-center justify-center gap-2 border border-white/40 dark:border-white/5 shadow-sm"
-                    onClick={() => setSelectedTx(null)}
+                    onClick={() => {
+                      if (onEdit) onEdit(selectedTx);
+                      setSelectedTx(null);
+                    }}
                   >
                     <Icons.Edit2 className="w-4 h-4" />
                     编辑记录

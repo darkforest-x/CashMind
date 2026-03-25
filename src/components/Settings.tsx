@@ -2,16 +2,30 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { Budget } from '../types';
+import { useToast } from './Toast';
+import { format } from 'date-fns';
 
-export default function Settings() {
-  const [activeModal, setActiveModal] = useState<'tutorial' | 'privacy' | 'appstore' | null>(null);
-  const [token, setToken] = useState(() => {
-    const saved = localStorage.getItem('gqh_api_token');
-    if (saved) return saved;
-    const newToken = 'gqh_sk_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    localStorage.setItem('gqh_api_token', newToken);
-    return newToken;
-  });
+interface SettingsProps {
+  budgets?: Budget[];
+  onUpdateBudgets?: (budgets: Budget[]) => void;
+}
+
+export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProps) {
+  const [activeModal, setActiveModal] = useState<'tutorial' | 'privacy' | 'appstore' | 'budget' | null>(null);
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const { showToast } = useToast();
+  const [token, setToken] = useState('加载中...');
+
+  useEffect(() => {
+    fetch('/api/shortcut/token')
+      .then(res => res.json())
+      .then(data => setToken(data.token))
+      .catch(err => {
+        console.error('Failed to fetch token:', err);
+        setToken('获取失败');
+      });
+  }, []);
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('gqh_dark_mode');
@@ -41,7 +55,7 @@ export default function Settings() {
       const data = await res.json();
       
       if (!data || data.length === 0) {
-        alert('没有账单数据可导出');
+        showToast('没有账单数据可导出', 'info');
         return;
       }
 
@@ -69,9 +83,42 @@ export default function Settings() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      showToast('导出成功', 'success');
     } catch (err) {
       console.error('导出失败:', err);
-      alert('导出失败，请重试');
+      showToast('导出失败，请重试', 'error');
+    }
+  };
+
+  const handleSaveBudget = async () => {
+    const amount = parseFloat(budgetAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showToast('请输入有效的预算金额', 'error');
+      return;
+    }
+
+    const currentMonth = format(new Date(), 'yyyy-MM');
+    try {
+      const res = await fetch('/api/budgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, month: currentMonth }),
+      });
+      
+      if (res.ok) {
+        const newBudget = await res.json();
+        if (onUpdateBudgets) {
+          const updatedBudgets = budgets.filter(b => b.month !== currentMonth);
+          onUpdateBudgets([newBudget, ...updatedBudgets]);
+        }
+        showToast('预算设置成功', 'success');
+        setActiveModal(null);
+      } else {
+        showToast('预算设置失败', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to save budget:', error);
+      showToast('预算设置失败，请检查网络', 'error');
     }
   };
 
@@ -157,6 +204,26 @@ export default function Settings() {
           transition={{ delay: 0.1, duration: 0.4 }}
           className="bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-3xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]"
         >
+          <button
+            onClick={() => {
+              const currentMonth = format(new Date(), 'yyyy-MM');
+              const currentBudget = budgets.find(b => b.month === currentMonth);
+              setBudgetAmount(currentBudget ? currentBudget.amount.toString() : '');
+              setActiveModal('budget');
+            }}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-white/50 dark:hover:bg-white/10 rounded-2xl transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/50 dark:bg-white/10 flex items-center justify-center">
+                <Icons.Target className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </div>
+              <span className="font-medium">本月预算设置</span>
+            </div>
+            <Icons.ChevronRight className="w-4 h-4 text-gray-400" />
+          </button>
+
+          <div className="h-px bg-black/5 dark:bg-white/10 mx-4"></div>
+
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/50 dark:bg-white/10 flex items-center justify-center">
@@ -266,6 +333,7 @@ export default function Settings() {
                   {activeModal === 'tutorial' && '快捷指令配置教程'}
                   {activeModal === 'privacy' && '用户协议与隐私政策'}
                   {activeModal === 'appstore' && '添加到主屏幕'}
+                  {activeModal === 'budget' && '设置本月预算'}
                 </h3>
                 <button
                   onClick={() => setActiveModal(null)}
@@ -281,7 +349,7 @@ export default function Settings() {
                   <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
                     <p>1. 打开 iOS 快捷指令 App，新建一个快捷指令。</p>
                     <p>2. 添加操作：<strong>获取 URL 内容</strong>。</p>
-                    <p>3. URL 设置为：<br/><code className="bg-gray-100 dark:bg-zinc-800 p-1.5 rounded block mt-1 break-all select-all">{window.location.origin}/api/transactions</code></p>
+                    <p>3. URL 设置为：<br/><code className="bg-gray-100 dark:bg-zinc-800 p-1.5 rounded block mt-1 break-all select-all">{window.location.origin}/api/shortcut/add</code></p>
                     <p>4. 方法选择：<strong>POST</strong></p>
                     <p>5. 头部 (Headers) 添加：<br/>
                       <span className="inline-block mt-1 bg-gray-100 dark:bg-zinc-800 p-1.5 rounded">
@@ -333,6 +401,29 @@ export default function Settings() {
                       </p>
                       <p className="mt-1 text-xs">点击右上角菜单，选择“添加到主屏幕”。</p>
                     </div>
+                  </div>
+                )}
+
+                {activeModal === 'budget' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                        预算金额 (¥)
+                      </label>
+                      <input
+                        type="number"
+                        value={budgetAmount}
+                        onChange={(e) => setBudgetAmount(e.target.value)}
+                        placeholder="例如: 5000"
+                        className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveBudget}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors"
+                    >
+                      保存设置
+                    </button>
                   </div>
                 )}
               </div>
