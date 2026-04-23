@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["CNY", "USD", "EUR", "JPY"] },
+        "type": { "type": "string", "enum": ["expense", "income"] },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "note": { "type": "string" },
+        "source": { "type": "string", "enum": ["manual", "shortcut"] }
+      },
+      "required": ["id", "userId", "amount", "type", "category", "date"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "A monthly budget setting",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "month": { "type": "string", "format": "yyyy-MM" },
+        "amount": { "type": "number" }
+      },
+      "required": ["id", "userId", "month", "amount"]
+    }
+  },
+  "firestore": {
+    "transactions": {
+      "schema": "Transaction",
+      "description": "List of user transactions"
+    },
+    "budgets": {
+      "schema": "Budget",
+      "description": "User monthly budgets"
+    }
+  }
+}

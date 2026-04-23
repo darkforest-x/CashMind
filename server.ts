@@ -27,9 +27,17 @@ db.exec(`
     category TEXT NOT NULL,
     date TEXT NOT NULL,
     note TEXT,
-    source TEXT NOT NULL
+    source TEXT NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'CNY'
   )
 `);
+
+// Support existing databases by adding currency column if it doesn't exist
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN currency TEXT NOT NULL DEFAULT 'CNY'");
+} catch (e) {
+  // Column likely already exists
+}
 
 // Create budgets table
 db.exec(`
@@ -46,17 +54,17 @@ const { count } = countStmt.get() as { count: number };
 
 if (count === 0) {
   const insertStmt = db.prepare(`
-    INSERT INTO transactions (id, amount, type, category, date, note, source)
-    VALUES (@id, @amount, @type, @category, @date, @note, @source)
+    INSERT INTO transactions (id, amount, type, category, date, note, source, currency)
+    VALUES (@id, @amount, @type, @category, @date, @note, @source, @currency)
   `);
   
   const today = new Date();
   const initialData = [
-    { id: 't1', amount: 32.5, type: 'expense', category: 'coffee', date: formatISO(today), note: '星巴克拿铁', source: 'shortcut' },
-    { id: 't2', amount: 15.0, type: 'expense', category: 'transport', date: formatISO(today), note: '打车', source: 'shortcut' },
-    { id: 't3', amount: 120.0, type: 'expense', category: 'food', date: formatISO(subDays(today, 1)), note: '外卖晚餐', source: 'shortcut' },
-    { id: 't4', amount: 50.0, type: 'expense', category: 'shopping', date: formatISO(subDays(today, 1)), note: '便利店', source: 'manual' },
-    { id: 't5', amount: 15000.0, type: 'income', category: 'salary', date: formatISO(subDays(today, 2)), note: '本月工资', source: 'manual' },
+    { id: 't1', amount: 32.5, type: 'expense', category: 'coffee', date: formatISO(today), note: '星巴克拿铁', source: 'shortcut', currency: 'CNY' },
+    { id: 't2', amount: 15.0, type: 'expense', category: 'transport', date: formatISO(today), note: '打车', source: 'shortcut', currency: 'CNY' },
+    { id: 't3', amount: 120.0, type: 'expense', category: 'food', date: formatISO(subDays(today, 1)), note: '外卖晚餐', source: 'shortcut', currency: 'CNY' },
+    { id: 't4', amount: 50.0, type: 'expense', category: 'shopping', date: formatISO(subDays(today, 1)), note: '便利店', source: 'manual', currency: 'CNY' },
+    { id: 't5', amount: 15000.0, type: 'income', category: 'salary', date: formatISO(subDays(today, 2)), note: '本月工资', source: 'manual', currency: 'CNY' },
   ];
 
   const insertMany = db.transaction((data) => {
@@ -93,11 +101,12 @@ async function startServer() {
       date: req.body.date || formatISO(new Date()),
       note: req.body.note || '',
       source: req.body.source || 'manual',
+      currency: req.body.currency || 'CNY',
     };
     
     const stmt = db.prepare(`
-      INSERT INTO transactions (id, amount, type, category, date, note, source)
-      VALUES (@id, @amount, @type, @category, @date, @note, @source)
+      INSERT INTO transactions (id, amount, type, category, date, note, source, currency)
+      VALUES (@id, @amount, @type, @category, @date, @note, @source, @currency)
     `);
     stmt.run(newTx);
     
@@ -194,10 +203,10 @@ async function startServer() {
   });
 
   app.put("/api/transactions/:id", (req, res) => {
-    const { amount, type, category, date, note, source } = req.body;
+    const { amount, type, category, date, note, source, currency } = req.body;
     const stmt = db.prepare(`
       UPDATE transactions 
-      SET amount = @amount, type = @type, category = @category, date = @date, note = @note, source = @source
+      SET amount = @amount, type = @type, category = @category, date = @date, note = @note, source = @source, currency = @currency
       WHERE id = @id
     `);
     
@@ -208,7 +217,8 @@ async function startServer() {
       category,
       date,
       note,
-      source
+      source,
+      currency: currency || 'CNY'
     });
     
     res.json({ success: true });
@@ -247,12 +257,13 @@ async function startServer() {
       date: formatISO(new Date()),
       note: note || '',
       source: 'shortcut',
+      currency: 'CNY',
     };
     
     try {
       const stmt = db.prepare(`
-        INSERT INTO transactions (id, amount, type, category, date, note, source)
-        VALUES (@id, @amount, @type, @category, @date, @note, @source)
+        INSERT INTO transactions (id, amount, type, category, date, note, source, currency)
+        VALUES (@id, @amount, @type, @category, @date, @note, @source, @currency)
       `);
       stmt.run(newTx);
       res.json({ success: true, transaction: newTx });

@@ -4,30 +4,53 @@ import { MOCK_CATEGORIES } from '../data';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import * as Icons from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency, getCurrencySymbol } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { User } from 'firebase/auth';
 
 interface HomeProps {
   transactions: Transaction[];
   onDelete?: (id: string) => void;
   onEdit?: (t: Transaction) => void;
   budgets?: Budget[];
+  user?: User | null;
+  onLogout?: () => void;
+  onLoginRequest?: () => void;
 }
 
-export default function Home({ transactions, onDelete, onEdit, budgets = [] }: HomeProps) {
+const EXCHANGE_RATES: Record<string, number> = {
+  CNY: 1,
+  USD: 7.23,
+  EUR: 7.75,
+  JPY: 0.047,
+};
+
+export default function Home({ transactions, onDelete, onEdit, budgets = [], user, onLogout, onLoginRequest }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const currentMonth = format(new Date(), 'yyyy-MM');
+
+  const handleUserClick = () => {
+    if (user) {
+      setIsUserMenuOpen(!isUserMenuOpen);
+    } else if (onLoginRequest) {
+      onLoginRequest();
+    }
+  };
   const currentBudget = budgets.find(b => b.month === currentMonth)?.amount || 0;
+
+  const toCNY = (amount: number, currency: string = 'CNY') => {
+    return amount * (EXCHANGE_RATES[currency] || 1);
+  };
 
   const totalIncome = transactions
     .filter((t) => t.type === 'income' && t.date.startsWith(currentMonth))
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + toCNY(t.amount, t.currency), 0);
   const totalExpense = transactions
     .filter((t) => t.type === 'expense' && t.date.startsWith(currentMonth))
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + toCNY(t.amount, t.currency), 0);
   const netBalance = totalIncome - totalExpense;
 
   const budgetProgress = currentBudget > 0 ? Math.min((totalExpense / currentBudget) * 100, 100) : 0;
@@ -60,10 +83,14 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
           <h1 className="text-2xl font-semibold tracking-tight">本月收支</h1>
           <div className="relative">
             <button 
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center transition-transform active:scale-95"
+              onClick={handleUserClick}
+              className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center transition-transform active:scale-95 overflow-hidden border-2 border-white/20 dark:border-white/5"
             >
-              <Icons.User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+              ) : (
+                <Icons.User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              )}
             </button>
             
             <AnimatePresence>
@@ -83,16 +110,20 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
                     className="absolute right-0 mt-2 w-48 bg-white/50 dark:bg-black/50 backdrop-blur-3xl saturate-200 border border-white/40 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] z-50 overflow-hidden"
                   >
                     <div className="py-2">
+                      <div className="px-4 py-2 mb-1">
+                        <p className="text-xs font-semibold truncate dark:text-white">{user?.displayName || '用户'}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{user?.email}</p>
+                      </div>
+                      <div className="h-px bg-black/5 dark:bg-white/10 mx-2 mb-1"></div>
                       <button className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm">
                         <Icons.UserCircle className="w-4 h-4" />
-                        个人主页
-                      </button>
-                      <button className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm">
-                        <Icons.Settings className="w-4 h-4" />
-                        偏好设置
+                        个人中心
                       </button>
                       <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-2"></div>
-                      <button className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm text-red-600 dark:text-red-400">
+                      <button 
+                        onClick={onLogout}
+                        className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm text-red-600 dark:text-red-400"
+                      >
                         <Icons.LogOut className="w-4 h-4" />
                         退出登录
                       </button>
@@ -182,7 +213,23 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
       <div className="px-6 pt-4 relative z-10">
         <h2 className="text-lg font-semibold mb-4">近期流水</h2>
         <div className="space-y-6">
-          {sortedDates.length === 0 ? (
+          {!user && transactions.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="text-center py-12 px-8 bg-white/40 dark:bg-black/40 rounded-3xl border border-white/40 dark:border-white/10"
+            >
+              <Icons.CloudOff className="w-10 h-10 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-sm font-medium mb-1">未登录</h3>
+              <p className="text-xs text-gray-500 mb-6">您的数据将同步到云端，登录后即可查看</p>
+              <button 
+                onClick={onLoginRequest}
+                className="text-indigo-600 dark:text-indigo-400 text-sm font-semibold"
+              >
+                立即登录
+              </button>
+            </motion.div>
+          ) : sortedDates.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
@@ -202,7 +249,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
               : format(date, 'MM月dd日', { locale: zhCN });
 
             const dayTotal = groupedTransactions[dateStr].reduce(
-              (sum, t) => sum + (t.type === 'expense' ? -t.amount : t.amount),
+              (sum, t) => sum + toCNY(t.type === 'expense' ? -t.amount : t.amount, t.currency),
               0
             );
 
@@ -216,7 +263,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
               >
                 <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
                   <span className="font-medium">{dateLabel}</span>
-                  <span>{dayTotal < 0 ? '-' : '+'}{Math.abs(dayTotal).toFixed(2)}</span>
+                  <span>{dayTotal < 0 ? '-' : '+'}{formatCurrency(Math.abs(dayTotal), 'CNY')}</span>
                 </div>
                 <div className="bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-3xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
                   {groupedTransactions[dateStr].map((t, i) => {
@@ -251,7 +298,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
                                   t.type === 'expense' ? 'text-gray-900 dark:text-white' : 'text-green-600 dark:text-green-400'
                                 )}
                               >
-                                {t.type === 'expense' ? '-' : '+'}{t.amount.toFixed(2)}
+                                {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount, t.currency)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -303,7 +350,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [] }: H
                 <h3 className="text-xl font-semibold text-center mb-6">
                   {selectedTx.note || getCategory(selectedTx.category).name}
                   <span className="block text-sm font-normal text-gray-500 mt-1">
-                    {selectedTx.type === 'expense' ? '-' : '+'}{selectedTx.amount.toFixed(2)}
+                    {selectedTx.type === 'expense' ? '-' : '+'}{formatCurrency(selectedTx.amount, selectedTx.currency)}
                   </span>
                 </h3>
                 <div className="space-y-3">

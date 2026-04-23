@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { Budget } from '../types';
+import { Budget, Currency } from '../types';
 import { useToast } from './Toast';
 import { format } from 'date-fns';
 
@@ -12,10 +12,19 @@ interface SettingsProps {
 }
 
 export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProps) {
-  const [activeModal, setActiveModal] = useState<'tutorial' | 'privacy' | 'appstore' | 'budget' | null>(null);
+  const [activeModal, setActiveModal] = useState<'tutorial' | 'privacy' | 'appstore' | 'budget' | 'currency' | null>(null);
   const [budgetAmount, setBudgetAmount] = useState('');
+  const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
   const { showToast } = useToast();
-  const [token, setToken] = useState('加载中...');
+  const [token, setToken] = useState('加载 in...');
+
+  const [defaultCurrency, setDefaultCurrency] = useState<Currency>(() => {
+    return (localStorage.getItem('gqh_default_currency') as Currency) || 'CNY';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gqh_default_currency', defaultCurrency);
+  }, [defaultCurrency]);
 
   useEffect(() => {
     fetch('/api/shortcut/token')
@@ -52,20 +61,29 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
   const handleExport = async () => {
     try {
       const res = await fetch('/api/transactions');
-      const data = await res.json();
+      let data = await res.json();
       
       if (!data || data.length === 0) {
         showToast('没有账单数据可导出', 'info');
         return;
       }
 
-      const headers = ['ID', '金额', '类型', '分类', '日期', '备注', '来源'];
+      // Filter by month
+      data = data.filter((t: any) => t.date.startsWith(exportMonth));
+      
+      if (data.length === 0) {
+        showToast(`${exportMonth} 没有账单数据可导出`, 'info');
+        return;
+      }
+
+      const headers = ['ID', '金额', '币种', '类型', '分类', '日期', '备注', '来源'];
       const csvRows = [headers.join(',')];
       
       for (const t of data) {
         const row = [
           t.id,
           t.amount,
+          t.currency || 'CNY',
           t.type === 'expense' ? '支出' : '收入',
           t.category,
           t.date,
@@ -79,7 +97,7 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `管钱花账单_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", `管钱花账单_${exportMonth}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -224,6 +242,24 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
 
           <div className="h-px bg-black/5 dark:bg-white/10 mx-4"></div>
 
+          <button
+            onClick={() => setActiveModal('currency')}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-white/50 dark:hover:bg-white/10 rounded-2xl transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/50 dark:bg-white/10 flex items-center justify-center">
+                <Icons.Coins className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </div>
+              <div>
+                <span className="font-medium">默认币种</span>
+                <p className="text-[10px] text-gray-500">{defaultCurrency}</p>
+              </div>
+            </div>
+            <Icons.ChevronRight className="w-4 h-4 text-gray-400" />
+          </button>
+
+          <div className="h-px bg-black/5 dark:bg-white/10 mx-4"></div>
+
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/50 dark:bg-white/10 flex items-center justify-center">
@@ -248,6 +284,16 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
           </div>
 
           <div className="h-px bg-black/5 dark:bg-white/10 mx-4"></div>
+
+          <div className="p-4 bg-white/10 dark:bg-black/20 rounded-2xl mx-4 mb-4 border border-white/20 dark:border-white/5">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">导出月份</label>
+            <input 
+              type="month" 
+              value={exportMonth}
+              onChange={(e) => setExportMonth(e.target.value)}
+              className="bg-transparent border-none text-sm font-medium focus:ring-0 p-0 w-full"
+            />
+          </div>
 
           <button
             onClick={handleExport}
@@ -333,7 +379,7 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
                   {activeModal === 'tutorial' && '快捷指令配置教程'}
                   {activeModal === 'privacy' && '用户协议与隐私政策'}
                   {activeModal === 'appstore' && '添加到主屏幕'}
-                  {activeModal === 'budget' && '设置本月预算'}
+                  {activeModal === 'currency' && '选择默认币种'}
                 </h3>
                 <button
                   onClick={() => setActiveModal(null)}
@@ -424,6 +470,30 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
                     >
                       保存设置
                     </button>
+                  </div>
+                )}
+
+                {activeModal === 'currency' && (
+                  <div className="space-y-2">
+                    {(['CNY', 'USD', 'EUR', 'JPY'] as Currency[]).map(curr => (
+                      <button
+                        key={curr}
+                        onClick={() => {
+                          setDefaultCurrency(curr);
+                          setActiveModal(null);
+                          showToast(`默认币种已切换为 ${curr}`, 'success');
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-4 rounded-2xl border transition-all",
+                          defaultCurrency === curr 
+                            ? "border-indigo-500 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
+                            : "border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                        )}
+                      >
+                        <span className="font-semibold">{curr}</span>
+                        {defaultCurrency === curr && <Icons.Check className="w-5 h-5" />}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

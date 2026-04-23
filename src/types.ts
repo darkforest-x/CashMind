@@ -1,3 +1,5 @@
+export type Currency = 'CNY' | 'USD' | 'EUR' | 'JPY';
+
 export type Transaction = {
   id: string;
   amount: number;
@@ -6,6 +8,7 @@ export type Transaction = {
   date: string;
   note?: string;
   source: 'shortcut' | 'manual';
+  currency: Currency;
 };
 
 export type Category = {

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, Category } from '../types';
+import { Transaction, Category, Currency } from '../types';
 import { MOCK_CATEGORIES } from '../data';
 import * as Icons from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, getCurrencySymbol } from '../lib/utils';
 import { formatISO } from 'date-fns';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from './Toast';
 
 interface AddProps {
@@ -24,6 +24,8 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
   const [amount, setAmount] = useState(initialData ? initialData.amount.toString() : '0');
   const [type, setType] = useState<'expense' | 'income'>(initialData ? initialData.type : 'expense');
   const [category, setCategory] = useState<string>(initialData ? initialData.category : 'food');
+  const [currency, setCurrency] = useState<Currency>(initialData ? initialData.currency : (localStorage.getItem('gqh_default_currency') as Currency || 'CNY'));
+  const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
   const [note, setNote] = useState(initialData ? (initialData.note || '') : '');
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([
     { cat: 'food', prob: 100, label: '餐饮美食' }
@@ -104,6 +106,7 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
         type,
         category,
         note,
+        currency,
       });
     } else {
       onAdd({
@@ -114,6 +117,7 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
         date: formatISO(new Date()),
         note,
         source: 'manual',
+        currency,
       });
     }
     setAmount('0');
@@ -157,9 +161,51 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
 
         <div className="flex flex-col items-center justify-center mb-6">
           <span className="text-sm text-gray-500 dark:text-gray-400 mb-2">输入金额</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-medium text-gray-400">¥</span>
+          <div className="flex items-baseline gap-1 relative">
+            <button 
+              onClick={() => setIsCurrencyMenuOpen(!isCurrencyMenuOpen)}
+              className="text-3xl font-medium text-indigo-600 dark:text-indigo-400 hover:opacity-70 transition-opacity"
+            >
+              {getCurrencySymbol(currency)}
+            </button>
             <span className="text-6xl font-bold tracking-tighter">{amount}</span>
+
+            <AnimatePresence>
+              {isCurrencyMenuOpen && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsCurrencyMenuOpen(false)}
+                    className="fixed inset-0 z-40"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    className="absolute bottom-full left-0 mb-4 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-2xl shadow-xl z-50 p-2 min-w-[100px]"
+                  >
+                    {(['CNY', 'USD', 'EUR', 'JPY'] as Currency[]).map(curr => (
+                      <button
+                        key={curr}
+                        onClick={() => {
+                          setCurrency(curr);
+                          setIsCurrencyMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full px-4 py-2 text-left rounded-xl text-sm font-medium transition-colors mb-1 last:mb-0 flex items-center justify-between",
+                          currency === curr ? "bg-indigo-500 text-white" : "hover:bg-black/5 dark:hover:bg-white/10"
+                        )}
+                      >
+                        <span>{curr}</span>
+                        <span className="opacity-60">{getCurrencySymbol(curr)}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
