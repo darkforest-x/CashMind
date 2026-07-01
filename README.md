@@ -30,6 +30,8 @@ Authorization: Bearer YOUR_SHORTCUT_TOKEN
 Content-Type: application/json
 ```
 
+`YOUR_SHORTCUT_TOKEN` 来自服务端 `.env` 里的 `SHORTCUT_TOKEN`。生产部署后 `/api/shortcut/token` 只返回是否已配置和尾号，不会在公网展示完整 Token；在 App 的设置页把这个 Token 粘贴并保存到本机后，再复制到 iPhone 快捷指令的请求头里。
+
 ### Wallet / Apple Pay 全自动
 
 快捷指令自动化触发器选择 **交易 / Wallet**，在刷 Wallet 卡后自动请求：

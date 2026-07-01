@@ -1,21 +1,9 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Home as HomeIcon, Lock, PieChart, PlusCircle, Settings as SettingsIcon } from 'lucide-react';
-import { Transaction, Budget } from './types';
+import type { Transaction } from './types';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { useToast } from './components/Toast';
-import { auth, db, logout } from './lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  setDoc,
-  orderBy
-} from 'firebase/firestore';
+import { useCashMindData } from './hooks/useCashMindData';
 
 const Home = lazy(() => import('./components/Home'));
 const Add = lazy(() => import('./components/Add'));
@@ -25,16 +13,23 @@ const Login = lazy(() => import('./components/Login'));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const { showToast } = useToast();
+  const {
+    transactions,
+    budgets,
+    isLoading,
+    user,
+    isApiBackend,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    updateBudgets,
+    logoutUser,
+  } = useCashMindData();
+  const canUseApp = isApiBackend || Boolean(user);
 
   useEffect(() => {
-    // Initialize dark mode
     const savedDarkMode = localStorage.getItem('gqh_dark_mode');
     const isDark = savedDarkMode !== null ? savedDarkMode === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (isDark) {
@@ -42,124 +37,20 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        setTransactions([]);
-        setBudgets([]);
-        setIsLoading(false);
-      }
-    });
-
-    return () => unsubscribeAuth();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-
-    setIsLoading(true);
-
-    const txQuery = query(
-      collection(db, 'transactions'),
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
-
-    const unsubscribeTx = onSnapshot(txQuery, (snapshot) => {
-      const txs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Transaction));
-      setTransactions(txs);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Firestore snapshot error:", error);
-      setIsLoading(false);
-    });
-
-    const budgetQuery = query(
-      collection(db, 'budgets'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribeBudgets = onSnapshot(budgetQuery, (snapshot) => {
-      const bgs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Budget));
-      setBudgets(bgs);
-    });
-
-    return () => {
-      unsubscribeTx();
-      unsubscribeBudgets();
-    };
-  }, [user]);
-
   const handleAddTransaction = async (t: Transaction) => {
-    if (!user) return;
-    try {
-      const txRef = doc(collection(db, 'transactions'));
-      const txData = { 
-        ...t, 
-        id: txRef.id, 
-        userId: user.uid,
-        date: t.date.split('T')[0] // Ensure strict date format
-      };
-      await setDoc(txRef, txData);
+    const saved = await addTransaction(t);
+    if (saved) {
       setActiveTab('home');
-      showToast('记录添加成功', 'success');
-    } catch (err) {
-      console.error('Failed to add transaction:', err);
-      showToast('数据写入权限不足，请联系管理员', 'error');
     }
   };
 
   const handleUpdateTransaction = async (t: Transaction) => {
-    if (!user) return;
-    try {
-      const txRef = doc(db, 'transactions', t.id);
-      const updateData = { ...t, userId: user.uid };
-      await setDoc(txRef, updateData, { merge: true });
+    const saved = await updateTransaction(t);
+    if (saved) {
       setEditingTransaction(null);
       setActiveTab('home');
-      showToast('记录更新成功', 'success');
-    } catch (err) {
-      console.error('Failed to update transaction:', err);
-      showToast('更新失败，权限验证未通过', 'error');
-    }
-  };
-
-  const handleDeleteTransaction = async (id: string) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'transactions', id));
-      showToast('记录已删除', 'success');
-    } catch (err) {
-      console.error('Failed to delete transaction:', err);
-      showToast('记录删除失败', 'error');
-    }
-  };
-
-  const handleUpdateBudgets = async (newBudgets: Budget[]) => {
-    if (!user) return;
-    try {
-      // In our current settings logic, we usually update one budget at a time
-      // But for compatibility with the prop:
-      for (const b of newBudgets) {
-        const budgetId = `${user.uid}_${b.month}`;
-        await setDoc(doc(db, 'budgets', budgetId), {
-          ...b,
-          id: budgetId,
-          userId: user.uid
-        });
-      }
-    } catch (err) {
-      console.error('Failed to update budget:', err);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      showToast('已退出登录', 'info');
-    } catch (err) {
-      showToast('退出失败', 'error');
     }
   };
 
@@ -179,9 +70,9 @@ export default function App() {
 
     switch (activeTab) {
       case 'home':
-        return <Home transactions={transactions} onDelete={handleDeleteTransaction} onEdit={handleEditRequest} budgets={budgets} user={user} onLogout={handleLogout} onLoginRequest={() => setShowLogin(true)} />;
+        return <Home transactions={transactions} onDelete={deleteTransaction} onEdit={handleEditRequest} budgets={budgets} user={user} backendMode={isApiBackend} onLogout={logoutUser} onLoginRequest={() => setShowLogin(true)} />;
       case 'add':
-        if (!user) {
+        if (!canUseApp) {
           return (
             <div className="flex flex-col items-center justify-center h-full px-8 text-center pb-20">
               <div className="w-16 h-16 bg-gray-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
@@ -202,9 +93,9 @@ export default function App() {
       case 'stats':
         return <Stats transactions={transactions} budgets={budgets} />;
       case 'settings':
-        return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={handleUpdateBudgets} />;
+        return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={updateBudgets} />;
       default:
-        return <Home transactions={transactions} onDelete={handleDeleteTransaction} onEdit={handleEditRequest} budgets={budgets} user={user} onLogout={handleLogout} onLoginRequest={() => setShowLogin(true)} />;
+        return <Home transactions={transactions} onDelete={deleteTransaction} onEdit={handleEditRequest} budgets={budgets} user={user} backendMode={isApiBackend} onLogout={logoutUser} onLoginRequest={() => setShowLogin(true)} />;
     }
   };
 
@@ -259,7 +150,7 @@ export default function App() {
         </div>
 
         {/* Bottom Navigation Bar */}
-        {user && (
+        {canUseApp && (
           <div className="absolute bottom-0 inset-x-0 h-20 bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border-t border-white/40 dark:border-white/10 pb-safe z-50">
             <div className="flex justify-around items-center h-full px-6">
               {tabs.map((tab) => {

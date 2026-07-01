@@ -36,6 +36,7 @@ interface HomeProps {
   onEdit?: (t: Transaction) => void;
   budgets?: Budget[];
   user?: User | null;
+  backendMode?: boolean;
   onLogout?: () => void;
   onLoginRequest?: () => void;
 }
@@ -68,7 +69,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   CircleHelp,
 };
 
-export default function Home({ transactions, onDelete, onEdit, budgets = [], user, onLogout, onLoginRequest }: HomeProps) {
+export default function Home({ transactions, onDelete, onEdit, budgets = [], user, backendMode = false, onLogout, onLoginRequest }: HomeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -76,7 +77,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
   const currentMonth = format(new Date(), 'yyyy-MM');
 
   const handleUserClick = () => {
-    if (user) {
+    if (user || backendMode) {
       setIsUserMenuOpen(!isUserMenuOpen);
     } else if (onLoginRequest) {
       onLoginRequest();
@@ -129,15 +130,17 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
               onClick={handleUserClick}
               className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center transition-transform active:scale-95 overflow-hidden border-2 border-white/20 dark:border-white/5"
             >
-              {user?.photoURL ? (
+              {user?.photoURL && !backendMode ? (
                 <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+              ) : backendMode ? (
+                <Wallet className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               ) : (
                 <UserIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               )}
             </button>
             
             <AnimatePresence>
-              {isUserMenuOpen && (
+              {isUserMenuOpen && (user || backendMode) && (
                 <>
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -154,21 +157,21 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                   >
                     <div className="py-2">
                       <div className="px-4 py-2 mb-1">
-                        <p className="text-xs font-semibold truncate dark:text-white">{user?.displayName || '用户'}</p>
-                        <p className="text-[10px] text-gray-500 truncate">{user?.email}</p>
+                        <p className="text-xs font-semibold truncate dark:text-white">{backendMode ? '自托管模式' : user?.displayName || '用户'}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{backendMode ? '个人服务数据源' : user?.email}</p>
                       </div>
                       <div className="h-px bg-black/5 dark:bg-white/10 mx-2 mb-1"></div>
                       <button className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm">
                         <UserCircle className="w-4 h-4" />
-                        个人中心
+                        {backendMode ? '本机与 VPS 同步' : '个人中心'}
                       </button>
                       <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-2"></div>
                       <button 
                         onClick={onLogout}
                         className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm text-red-600 dark:text-red-400"
                       >
-                        <LogOut className="w-4 h-4" />
-                        退出登录
+                        {backendMode ? <CloudOff className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
+                        {backendMode ? '自托管已连接' : '退出登录'}
                       </button>
                     </div>
                   </motion.div>
@@ -256,7 +259,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
       <div className="px-6 pt-4 relative z-10">
         <h2 className="text-lg font-semibold mb-4">近期流水</h2>
         <div className="space-y-6">
-          {!user && transactions.length === 0 ? (
+          {!backendMode && !user && transactions.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
@@ -278,7 +281,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
               animate={{ opacity: 1 }} 
               className="text-center text-gray-500 dark:text-gray-400 py-8"
             >
-              没有找到相关记录
+              {searchQuery.trim() ? '没有找到相关记录' : '暂无流水，下一笔交易会自动出现在这里'}
             </motion.div>
           ) : (
             sortedDates.map((dateStr, dateIndex) => {

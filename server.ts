@@ -513,6 +513,14 @@ function isAuthorizedShortcutRequest(req: express.Request): boolean {
   return Boolean(expectedToken && authHeader === `Bearer ${expectedToken}`);
 }
 
+function shouldExposeShortcutToken(): boolean {
+  return process.env.EXPOSE_SHORTCUT_TOKEN === "1" || process.env.NODE_ENV !== "production";
+}
+
+function getShortcutTokenHint(token: string): string {
+  return token.length > 4 ? token.slice(-4) : "****";
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -767,8 +775,22 @@ async function startServer() {
   });
 
   app.get("/api/shortcut/token", (req, res) => {
-    const token = process.env.SHORTCUT_TOKEN || '请在 .env 文件中设置 SHORTCUT_TOKEN';
-    res.json({ token });
+    const token = process.env.SHORTCUT_TOKEN;
+    if (!token) {
+      res.json({ configured: false });
+      return;
+    }
+
+    const payload = {
+      configured: true,
+      hint: getShortcutTokenHint(token),
+    };
+    if (shouldExposeShortcutToken()) {
+      res.json({ ...payload, token });
+      return;
+    }
+
+    res.json(payload);
   });
 
   app.post("/api/shortcut/add", (req, res) => {
