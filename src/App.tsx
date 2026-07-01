@@ -1,29 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import Home from './components/Home';
-import Add from './components/Add';
-import Stats from './components/Stats';
-import Settings from './components/Settings';
-import Login from './components/Login';
-import * as Icons from 'lucide-react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { Home as HomeIcon, Lock, PieChart, PlusCircle, Settings as SettingsIcon } from 'lucide-react';
 import { Transaction, Budget } from './types';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from './components/Toast';
-import { auth, db, handleFirestoreError, logout } from './lib/firebase';
+import { auth, db, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   collection, 
   query, 
   where, 
   onSnapshot, 
-  addDoc, 
-  updateDoc, 
   deleteDoc, 
   doc, 
   setDoc,
-  getDoc,
   orderBy
 } from 'firebase/firestore';
+
+const Home = lazy(() => import('./components/Home'));
+const Add = lazy(() => import('./components/Add'));
+const Stats = lazy(() => import('./components/Stats'));
+const Settings = lazy(() => import('./components/Settings'));
+const Login = lazy(() => import('./components/Login'));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -187,7 +185,7 @@ export default function App() {
           return (
             <div className="flex flex-col items-center justify-center h-full px-8 text-center pb-20">
               <div className="w-16 h-16 bg-gray-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
-                <Icons.Lock className="w-8 h-8 text-gray-400" />
+              <Lock className="w-8 h-8 text-gray-400" />
               </div>
               <h2 className="text-lg font-semibold mb-2">需要登录</h2>
               <p className="text-sm text-gray-500 mb-6">登录后即可同步您的每一笔账单</p>
@@ -204,17 +202,17 @@ export default function App() {
       case 'stats':
         return <Stats transactions={transactions} budgets={budgets} />;
       case 'settings':
-        return <Settings budgets={budgets} onUpdateBudgets={handleUpdateBudgets} />;
+        return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={handleUpdateBudgets} />;
       default:
         return <Home transactions={transactions} onDelete={handleDeleteTransaction} onEdit={handleEditRequest} budgets={budgets} user={user} onLogout={handleLogout} onLoginRequest={() => setShowLogin(true)} />;
     }
   };
 
   const tabs = [
-    { id: 'home', icon: 'Home', label: '流水', onClick: () => { setEditingTransaction(null); setActiveTab('home'); } },
-    { id: 'add', icon: 'PlusCircle', label: '补记', onClick: () => { setEditingTransaction(null); setActiveTab('add'); } },
-    { id: 'stats', icon: 'PieChart', label: '洞察', onClick: () => { setEditingTransaction(null); setActiveTab('stats'); } },
-    { id: 'settings', icon: 'Settings', label: '设置', onClick: () => { setEditingTransaction(null); setActiveTab('settings'); } },
+    { id: 'home', icon: HomeIcon, label: '流水', onClick: () => { setEditingTransaction(null); setActiveTab('home'); } },
+    { id: 'add', icon: PlusCircle, label: '补记', onClick: () => { setEditingTransaction(null); setActiveTab('add'); } },
+    { id: 'stats', icon: PieChart, label: '洞察', onClick: () => { setEditingTransaction(null); setActiveTab('stats'); } },
+    { id: 'settings', icon: SettingsIcon, label: '设置', onClick: () => { setEditingTransaction(null); setActiveTab('settings'); } },
   ];
 
   return (
@@ -248,7 +246,13 @@ export default function App() {
                 transition={{ duration: 0.25, ease: 'easeOut' }}
                 className="h-full w-full absolute inset-0"
               >
-                {renderContent()}
+                <Suspense fallback={
+                  <div className="flex items-center justify-center h-full">
+                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                }>
+                  {renderContent()}
+                </Suspense>
               </motion.div>
             </AnimatePresence>
           )}
@@ -259,7 +263,7 @@ export default function App() {
           <div className="absolute bottom-0 inset-x-0 h-20 bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border-t border-white/40 dark:border-white/10 pb-safe z-50">
             <div className="flex justify-around items-center h-full px-6">
               {tabs.map((tab) => {
-                const Icon = (Icons as any)[tab.icon];
+                const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button

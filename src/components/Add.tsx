@@ -6,6 +6,7 @@ import { cn, getCurrencySymbol } from '../lib/utils';
 import { formatISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from './Toast';
+import { getApiUrl, hasApiBackend } from '../lib/api';
 
 interface AddProps {
   onAdd: (t: Transaction) => void;
@@ -42,7 +43,16 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
     const classify = async () => {
       setIsClassifying(true);
       try {
-        const res = await fetch('/api/ai/classify', {
+        const endpoint = getApiUrl('/api/ai/classify');
+        if (!endpoint) {
+          if (!hasApiBackend()) {
+            setIsClassifying(false);
+            return;
+          }
+          throw new Error('No API endpoint configured');
+        }
+
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: numAmount, note }),

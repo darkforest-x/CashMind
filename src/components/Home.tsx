@@ -3,10 +3,32 @@ import { Transaction, Category, Budget } from '../types';
 import { MOCK_CATEGORIES } from '../data';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import * as Icons from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Car,
+  CircleHelp,
+  CloudOff,
+  Coffee,
+  Edit2,
+  Gamepad2,
+  HelpCircle,
+  Home as HomeCategoryIcon,
+  LogOut,
+  Search,
+  ShoppingBag,
+  Trash2,
+  User as UserIcon,
+  UserCircle,
+  Utensils,
+  Wallet,
+  XCircle,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn, formatCurrency, getCurrencySymbol } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 interface HomeProps {
   transactions: Transaction[];
@@ -23,6 +45,27 @@ const EXCHANGE_RATES: Record<string, number> = {
   USD: 7.23,
   EUR: 7.75,
   JPY: 0.047,
+};
+
+function getSourceLabel(source: Transaction['source']) {
+  if (source === 'manual') return '手动补记';
+  if (source === 'wallet') return 'Wallet 自动';
+  if (source === 'sms') return '短信自动';
+  if (source === 'email') return '邮件自动';
+  if (source === 'ocr') return 'OCR 自动';
+  if (source === 'import') return '账单导入';
+  return '快捷指令';
+}
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  Utensils,
+  Coffee,
+  Car,
+  ShoppingBag,
+  Gamepad2,
+  Home: HomeCategoryIcon,
+  Wallet,
+  CircleHelp,
 };
 
 export default function Home({ transactions, onDelete, onEdit, budgets = [], user, onLogout, onLoginRequest }: HomeProps) {
@@ -89,7 +132,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
               {user?.photoURL ? (
                 <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
               ) : (
-                <Icons.User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                <UserIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               )}
             </button>
             
@@ -116,7 +159,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                       </div>
                       <div className="h-px bg-black/5 dark:bg-white/10 mx-2 mb-1"></div>
                       <button className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm">
-                        <Icons.UserCircle className="w-4 h-4" />
+                        <UserCircle className="w-4 h-4" />
                         个人中心
                       </button>
                       <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-2"></div>
@@ -124,7 +167,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                         onClick={onLogout}
                         className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-sm text-red-600 dark:text-red-400"
                       >
-                        <Icons.LogOut className="w-4 h-4" />
+                        <LogOut className="w-4 h-4" />
                         退出登录
                       </button>
                     </div>
@@ -167,7 +210,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
         <div className="flex justify-between items-center bg-white/30 dark:bg-white/5 backdrop-blur-xl saturate-200 rounded-2xl p-4 border border-white/40 dark:border-white/10 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Icons.ArrowDownLeft className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <ArrowDownLeft className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">总收入</div>
@@ -177,7 +220,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
           <div className="w-px h-8 bg-gray-200 dark:bg-zinc-700"></div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <Icons.ArrowUpRight className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <ArrowUpRight className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">总支出</div>
@@ -190,7 +233,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
       {/* Search Bar */}
       <div className="px-6 pt-6 pb-2 relative z-10">
         <div className="relative">
-          <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400" />
           <input
             type="text"
             placeholder="搜索备注或分类..."
@@ -203,7 +246,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
-              <Icons.XCircle className="w-5 h-5" />
+              <XCircle className="w-5 h-5" />
             </button>
           )}
         </div>
@@ -219,7 +262,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
               animate={{ opacity: 1 }} 
               className="text-center py-12 px-8 bg-white/40 dark:bg-black/40 rounded-3xl border border-white/40 dark:border-white/10"
             >
-              <Icons.CloudOff className="w-10 h-10 text-gray-300 mx-auto mb-4" />
+              <CloudOff className="w-10 h-10 text-gray-300 mx-auto mb-4" />
               <h3 className="text-sm font-medium mb-1">未登录</h3>
               <p className="text-xs text-gray-500 mb-6">您的数据将同步到云端，登录后即可查看</p>
               <button 
@@ -268,7 +311,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                 <div className="bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-3xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
                   {groupedTransactions[dateStr].map((t, i) => {
                     const category = getCategory(t.category);
-                    const IconComponent = (Icons as any)[category.icon] || Icons.HelpCircle;
+                    const IconComponent = CATEGORY_ICONS[category.icon] || HelpCircle;
                     const isLast = i === groupedTransactions[dateStr].length - 1;
 
                     return (
@@ -305,10 +348,10 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                               <span>{format(parseISO(t.date), 'HH:mm')}</span>
                               <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
                               <span className="flex items-center gap-1">
-                                {t.source === 'shortcut' ? (
-                                  <><Icons.Zap className="w-3 h-3" /> 自动记录</>
+                                {t.source === 'manual' ? (
+                                  <><Edit2 className="w-3 h-3" /> 手动补记</>
                                 ) : (
-                                  <><Icons.Edit2 className="w-3 h-3" /> 手动补记</>
+                                  <><Zap className="w-3 h-3" /> {getSourceLabel(t.source)}</>
                                 )}
                               </span>
                             </div>
@@ -361,7 +404,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                       setSelectedTx(null);
                     }}
                   >
-                    <Icons.Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-4 h-4" />
                     编辑记录
                   </button>
                   <button 
@@ -371,7 +414,7 @@ export default function Home({ transactions, onDelete, onEdit, budgets = [], use
                       setSelectedTx(null);
                     }}
                   >
-                    <Icons.Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                     删除记录
                   </button>
                   <button 

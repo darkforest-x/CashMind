@@ -2,21 +2,35 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { Budget, Currency } from '../types';
+import { Budget, Currency, Transaction } from '../types';
 import { useToast } from './Toast';
 import { format } from 'date-fns';
+import { getApiUrl } from '../lib/api';
 
 interface SettingsProps {
+  transactions?: Transaction[];
   budgets?: Budget[];
-  onUpdateBudgets?: (budgets: Budget[]) => void;
+  onUpdateBudgets?: (budgets: Budget[]) => Promise<void> | void;
 }
 
-export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProps) {
+function getSourceLabel(source: Transaction['source']) {
+  if (source === 'manual') return '手动';
+  if (source === 'wallet') return 'Wallet';
+  if (source === 'sms') return '短信';
+  if (source === 'email') return '邮件';
+  if (source === 'ocr') return 'OCR';
+  if (source === 'import') return '导入';
+  return '快捷指令';
+}
+
+export default function Settings({ transactions = [], budgets = [], onUpdateBudgets }: SettingsProps) {
   const [activeModal, setActiveModal] = useState<'tutorial' | 'privacy' | 'appstore' | 'budget' | 'currency' | null>(null);
   const [budgetAmount, setBudgetAmount] = useState('');
   const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
   const { showToast } = useToast();
-  const [token, setToken] = useState('加载 in...');
+  const [token, setToken] = useState('加载中...');
+  const walletIngestUrl = getApiUrl('/api/ingest/wallet');
+  const textIngestUrl = getApiUrl('/api/ingest/text');
 
   const [defaultCurrency, setDefaultCurrency] = useState<Currency>(() => {
     return (localStorage.getItem('gqh_default_currency') as Currency) || 'CNY';
@@ -27,7 +41,13 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
   }, [defaultCurrency]);
 
   useEffect(() => {
-    fetch('/api/shortcut/token')
+    const tokenUrl = getApiUrl('/api/shortcut/token');
+    if (!tokenUrl) {
+      setToken('原生版请先配置 VITE_API_BASE_URL');
+      return;
+    }
+
+    fetch(tokenUrl)
       .then(res => res.json())
       .then(data => setToken(data.token))
       .catch(err => {
@@ -60,16 +80,7 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
 
   const handleExport = async () => {
     try {
-      const res = await fetch('/api/transactions');
-      let data = await res.json();
-      
-      if (!data || data.length === 0) {
-        showToast('没有账单数据可导出', 'info');
-        return;
-      }
-
-      // Filter by month
-      data = data.filter((t: any) => t.date.startsWith(exportMonth));
+      const data = transactions.filter((t) => t.date.startsWith(exportMonth));
       
       if (data.length === 0) {
         showToast(`${exportMonth} 没有账单数据可导出`, 'info');
@@ -88,7 +99,7 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
           t.category,
           t.date,
           `"${(t.note || '').replace(/"/g, '""')}"`,
-          t.source === 'manual' ? '手动' : '快捷指令'
+          getSourceLabel(t.source)
         ];
         csvRows.push(row.join(','));
       }
@@ -117,26 +128,23 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
 
     const currentMonth = format(new Date(), 'yyyy-MM');
     try {
-      const res = await fetch('/api/budgets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, month: currentMonth }),
-      });
-      
-      if (res.ok) {
-        const newBudget = await res.json();
-        if (onUpdateBudgets) {
-          const updatedBudgets = budgets.filter(b => b.month !== currentMonth);
-          onUpdateBudgets([newBudget, ...updatedBudgets]);
-        }
-        showToast('预算设置成功', 'success');
-        setActiveModal(null);
-      } else {
-        showToast('预算设置失败', 'error');
+      if (!onUpdateBudgets) {
+        showToast('预算同步尚未就绪', 'error');
+        return;
       }
+      const currentBudget = budgets.find(b => b.month === currentMonth);
+      const newBudget: Budget = {
+        id: currentBudget?.id || currentMonth,
+        amount,
+        month: currentMonth,
+      };
+      const updatedBudgets = [newBudget, ...budgets.filter(b => b.month !== currentMonth)];
+      await onUpdateBudgets(updatedBudgets);
+      showToast('预算设置成功', 'success');
+      setActiveModal(null);
     } catch (error) {
       console.error('Failed to save budget:', error);
-      showToast('预算设置失败，请检查网络', 'error');
+      showToast('预算设置失败，请检查登录或网络状态', 'error');
     }
   };
 
@@ -195,7 +203,7 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
               >
                 <span className="flex items-center gap-2">
                   <Icons.Download className="w-4 h-4" />
-                  下载官方快捷指令
+                  配置无感记账
                 </span>
                 <Icons.ChevronRight className="w-4 h-4" />
               </button>
@@ -393,28 +401,50 @@ export default function Settings({ budgets = [], onUpdateBudgets }: SettingsProp
               <div className="p-6 overflow-y-auto">
                 {activeModal === 'tutorial' && (
                   <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
-                    <p>1. 打开 iOS 快捷指令 App，新建一个快捷指令。</p>
-                    <p>2. 添加操作：<strong>获取 URL 内容</strong>。</p>
-                    <p>3. URL 设置为：<br/><code className="bg-gray-100 dark:bg-zinc-800 p-1.5 rounded block mt-1 break-all select-all">{window.location.origin}/api/shortcut/add</code></p>
-                    <p>4. 方法选择：<strong>POST</strong></p>
-                    <p>5. 头部 (Headers) 添加：<br/>
+                    <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/80 dark:bg-indigo-950/20 p-4">
+                      <p className="font-semibold text-gray-900 dark:text-white">通用请求头</p>
+                      <p className="mt-2">所有自动化都使用 <strong>获取 URL 内容</strong>，方法选择 <strong>POST</strong>。</p>
                       <span className="inline-block mt-1 bg-gray-100 dark:bg-zinc-800 p-1.5 rounded">
                         键: <code>Authorization</code><br/>
                         值: <code>Bearer {token}</code>
                       </span>
-                    </p>
-                    <p>6. 请求体 (Body) 选择 JSON，并添加以下字段：</p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li><code>amount</code>: 金额 (数字)</li>
-                      <li><code>type</code>: expense 或 income</li>
-                      <li><code>category</code>: 分类ID (如 coffee, food)</li>
-                      <li><code>note</code>: 备注 (文本)</li>
-                      <li><code>source</code>: shortcut</li>
-                    </ul>
-                    <a href="https://www.icloud.com/shortcuts/" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-3 mt-6 text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl font-medium transition-colors">
-                      <Icons.Download className="w-4 h-4" />
-                      获取示例快捷指令
-                    </a>
+                    </div>
+
+                    <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
+                      <p className="font-semibold text-gray-900 dark:text-white">1. Wallet / Apple Pay 全自动</p>
+                      <p className="mt-2">自动化触发器选择 <strong>交易 / Wallet</strong>，选择要监听的卡，运行方式选择立即运行。</p>
+                      <code className="bg-white dark:bg-zinc-900 p-1.5 rounded block mt-2 break-all select-all">
+                        {walletIngestUrl || '请在原生端配置 VITE_API_BASE_URL'}
+                      </code>
+                      <p className="mt-2">JSON Body：</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><code>amount</code>: Shortcut Input 的 Amount</li>
+                        <li><code>merchant</code>: Shortcut Input 的 Merchant 或 Name</li>
+                        <li><code>currency</code>: CNY</li>
+                      </ul>
+                    </div>
+
+                    <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
+                      <p className="font-semibold text-gray-900 dark:text-white">2. 短信 / 邮件自动解析</p>
+                      <p className="mt-2">触发器选择收到信息或收到邮件，筛选银行、账单或支付关键词。</p>
+                      <code className="bg-white dark:bg-zinc-900 p-1.5 rounded block mt-2 break-all select-all">
+                        {textIngestUrl || '请在原生端配置 VITE_API_BASE_URL'}
+                      </code>
+                      <p className="mt-2">JSON Body：</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><code>text</code>: 短信或邮件正文</li>
+                        <li><code>source</code>: sms 或 email</li>
+                      </ul>
+                    </div>
+
+                    <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
+                      <p className="font-semibold text-gray-900 dark:text-white">3. 截图 OCR 兜底</p>
+                      <p className="mt-2">快捷指令执行截图，提取图片文字，再把文字发到同一个文本导入接口。</p>
+                      <ul className="list-disc pl-5 space-y-1 mt-2">
+                        <li><code>text</code>: 提取出的文字</li>
+                        <li><code>source</code>: ocr</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
 

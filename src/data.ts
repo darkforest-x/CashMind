@@ -11,6 +11,7 @@ export const MOCK_CATEGORIES: Category[] = [
   { id: 'entertainment', name: '休闲娱乐', icon: 'Gamepad2', color: '#AF52DE' },
   { id: 'housing', name: '住房物业', icon: 'Home', color: '#34C759' },
   { id: 'salary', name: '薪资收入', icon: 'Wallet', color: '#34C759' },
+  { id: 'other', name: '其他', icon: 'CircleHelp', color: '#8E8E93' },
 ];
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
@@ -22,6 +23,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: formatISO(today),
     note: '星巴克拿铁',
     source: 'shortcut',
+    currency: 'CNY',
   },
   {
     id: 't2',
@@ -31,6 +33,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: formatISO(today),
     note: '打车',
     source: 'shortcut',
+    currency: 'CNY',
   },
   {
     id: 't3',
@@ -40,6 +43,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: formatISO(subDays(today, 1)),
     note: '外卖晚餐',
     source: 'shortcut',
+    currency: 'CNY',
   },
   {
     id: 't4',
@@ -49,6 +53,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: formatISO(subDays(today, 1)),
     note: '便利店',
     source: 'manual',
+    currency: 'CNY',
   },
   {
     id: 't5',
@@ -58,5 +63,6 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     date: formatISO(subDays(today, 2)),
     note: '本月工资',
     source: 'manual',
+    currency: 'CNY',
   },
 ];

@@ -1,7 +1,10 @@
 node_modules/
 build/
 dist/
+ios/App/build/
+ios/App/*.xcarchive
 coverage/
+data/
 .DS_Store
 *.log
 .env*

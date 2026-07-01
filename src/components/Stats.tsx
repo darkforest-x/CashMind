@@ -1,9 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Budget } from '../types';
 import { MOCK_CATEGORIES } from '../data';
-import * as Icons from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  Sparkles,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parseISO, endOfDay } from 'date-fns';
 import { cn, formatCurrency } from '../lib/utils';
 
@@ -20,6 +28,13 @@ const EXCHANGE_RATES: Record<string, number> = {
 };
 
 type TimeRange = 'week' | 'month' | 'year';
+
+const INSIGHT_ICONS: Record<string, LucideIcon> = {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+};
 
 export default function Stats({ transactions, budgets = [] }: StatsProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
@@ -154,12 +169,12 @@ export default function Stats({ transactions, budgets = [] }: StatsProps) {
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-4">
-            <Icons.Sparkles className="w-5 h-5 text-indigo-500" />
+            <Sparkles className="w-5 h-5 text-indigo-500" />
             <h2 className="text-lg font-medium">AI 财务洞察</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-6 px-6">
             {insights.map((insight, i) => {
-              const Icon = (Icons as any)[insight.icon] || Icons.Info;
+              const Icon = INSIGHT_ICONS[insight.icon] || Info;
               return (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
