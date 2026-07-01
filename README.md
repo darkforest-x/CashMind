@@ -1,162 +1,102 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# CashMind / 管钱花
 
-# Run and deploy your AI Studio app
+CashMind 1.0 是一个先跑通浏览器端的无感记账产品：iPhone 快捷指令负责把交易推送到 VPS，浏览器/PWA 负责查看、补记、编辑、预算和统计。
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/23ba0bf0-1ce8-40eb-9e8a-f92d6fa6803a
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-
-## 1.0 自动记账入口
-
-CashMind 1.0 的核心是把 iPhone 快捷指令采集到的交易统一导入服务端，再由服务端完成解析、分类和去重。
-
-所有自动化请求都需要带请求头：
+当前 1.0 不优先做原生 iOS App。核心链路是：
 
 ```text
-Authorization: Bearer YOUR_SHORTCUT_TOKEN
-Content-Type: application/json
+iPhone 快捷指令自动化
+-> CashMind VPS API
+-> 浏览器/PWA 查看和管理账单
 ```
 
-`YOUR_SHORTCUT_TOKEN` 来自服务端 `.env` 里的 `SHORTCUT_TOKEN`。生产部署后 `/api/shortcut/token` 只返回是否已配置和尾号，不会在公网展示完整 Token；在 App 的设置页把这个 Token 粘贴并保存到本机后，再复制到 iPhone 快捷指令的请求头里。
+## 当前部署
 
-App 读取、编辑账单和调用 AI 分类接口使用单独的 `APP_ACCESS_TOKEN`。生产部署后所有账单 API 都需要：
+- VPS: `103.214.174.58`
+- Web: `http://103.214.174.58:3000`
+- Health: `http://103.214.174.58:3000/api/health`
+- 远端目录: `/var/www/cashmind`
+- 进程管理: `pm2`，进程名 `cashmind`
 
-```text
-Authorization: Bearer YOUR_APP_ACCESS_TOKEN
+公网 IP 地址现在是 HTTP。浏览器可直接使用；完整 PWA 安装体验、Service Worker 缓存和更稳的 iPhone 主屏幕体验，后续建议绑定域名并启用 HTTPS。
+
+## 1.0 范围
+
+已包含：
+
+- 手机浏览器/PWA 使用
+- `APP_ACCESS_TOKEN` 保护账单读取、编辑、预算和 AI 分类接口
+- `SHORTCUT_TOKEN` 保护 iPhone 快捷指令写入接口
+- Wallet / Apple Pay 结构化导入
+- 短信、邮件、OCR 文本导入
+- SQLite 本地服务端数据库
+- PM2 部署到 VPS
+
+暂缓：
+
+- 原生 iOS App、Xcode 签名、TestFlight、App Store
+- 自动读取所有手机交易通知
+- 多用户账号体系
+- 银行/微信/支付宝官方账单直连
+
+## 本地运行
+
+```bash
+npm ci
+cp .env.example .env.local
+npm run dev
 ```
 
-`YOUR_APP_ACCESS_TOKEN` 来自服务端 `.env` 里的 `APP_ACCESS_TOKEN`，只保存在 App 本机浏览器或 iOS WebView 中。
+`.env.local` 至少需要：
 
-### Wallet / Apple Pay 全自动
-
-快捷指令自动化触发器选择 **交易 / Wallet**，在刷 Wallet 卡后自动请求：
-
-```http
-POST /api/ingest/wallet
+```bash
+HOST=127.0.0.1
+PORT=3000
+APP_ACCESS_TOKEN=replace_with_random_app_access_secret
+SHORTCUT_TOKEN=replace_with_random_long_secret
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-JSON Body 示例：
+`GEMINI_API_KEY` 缺失或不可用时，文本导入会尝试使用本地规则兜底，但 AI 分类和复杂文本解析效果会下降。
+
+## 生产部署
+
+常用部署方式：
+
+```bash
+git push origin main
+ssh root@103.214.174.58
+cd /var/www/cashmind
+git fetch origin main
+git reset --hard origin/main
+npm ci
+npm run build
+NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
+pm2 save
+```
+
+详细部署、回滚、备份和 token 轮换见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 和 [docs/OPERATIONS.md](docs/OPERATIONS.md)。
+
+## 文档
+
+- [文档索引](docs/INDEX.md)
+- [1.0 产品范围](docs/PRODUCT_1_0.md)
+- [浏览器/PWA 使用说明](docs/PWA_BROWSER.md)
+- [iPhone 快捷指令配置](docs/SHORTCUTS.md)
+- [API 接口说明](docs/API.md)
+- [VPS 部署说明](docs/DEPLOYMENT.md)
+- [运维手册](docs/OPERATIONS.md)
+
+## 验证命令
+
+```bash
+npm run lint
+npm run build
+curl http://103.214.174.58:3000/api/health
+```
+
+期望健康检查返回：
 
 ```json
-{
-  "amount": "Shortcut Input -> Amount",
-  "merchant": "Shortcut Input -> Merchant",
-  "currency": "CNY",
-  "id": "optional-wallet-transaction-id"
-}
+{"status":"ok"}
 ```
-
-### 短信、邮件、OCR 文本导入
-
-短信、邮件和截图 OCR 都走同一个文本入口：
-
-```http
-POST /api/ingest/text
-```
-
-JSON Body 示例：
-
-```json
-{
-  "text": "您尾号1234卡消费人民币28.00元，商户：星巴克",
-  "source": "sms"
-}
-```
-
-`source` 可选：`sms`、`email`、`ocr`、`shortcut`。服务端会优先使用 Gemini 解析；如果没有配置 `GEMINI_API_KEY` 或解析失败，会用本地规则兜底。重复请求会通过幂等键自动去重。
-
-## Build iOS App (Capacitor)
-
-1. Install dependencies:
-   `npm install`
-2. Build web assets:
-   `npm run build`
-3. Initialize Capacitor (first time only):
-   `npx cap init`
-4. Add iOS platform:
-   `npm run cap:add:ios`
-5. Sync assets:
-   `npm run cap:sync`
-6. Open Xcode:
-   `npm run cap:open`
-
-### Native API configuration
-
-When running inside iOS app, browser origin is not an HTTP domain, so `/api/*` needs an explicit base URL.
-
-Add this environment variable before build:
-
-```
-VITE_API_BASE_URL=https://your-backend-domain.com
-```
-
-Then run `npm run build && npm run cap:sync` again.
-
-## Build, Archive, and Export iOS App
-
-1. Make sure you have a valid backend URL set before building:
-```bash
-VITE_API_BASE_URL=https://your-backend-domain.com npm run build
-```
-
-2. Sync latest web assets to native project:
-```bash
-npm run cap:sync
-```
-
-3. Open Xcode:
-```bash
-npm run cap:open
-```
-
-4. In Xcode:
-- Select **Product → Scheme → App** and **Any iOS Device**
-- Set app version / build if needed:
-  - `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`
-- Choose **Product → Archive**
-
-5. In the Organizer, export an `.ipa`:
-- For App Store Connect: **Distribute App** -> App Store Connect
-- For test distribution: **Distribute App** -> Ad Hoc / Development
-
-### Command-line export (recommended for repeatable builds)
-
-```bash
-VITE_API_BASE_URL=https://your-backend-domain.com \
-APPLE_TEAM_ID=YOUR_APPLE_TEAM_ID \
-IOS_EXPORT_METHOD=app-store \
-npm run ios:archive
-```
-
-Optional env vars:
-- `DEVELOPMENT_TEAM` / `APPLE_TEAM_ID` (default: empty, used to satisfy signing in archive + export)
-- `IOS_SCHEME` (default: `App`)
-- `IOS_CONFIGURATION` (default: `Release`)
-- `IOS_WORKSPACE` (default: `ios/App/App.xcworkspace`)
-- `IOS_EXPORT_PATH` (default: `ios/App/build/ipa`)
-- `IOS_ARCHIVE_PATH` (default: `ios/App/build/cashmind.xcarchive`)
-- `SKIP_WEB_BUILD=1` (skip `npm run build && npm run cap:sync`)
-- `SKIP_SIGNING=1` (skip signing in archive for local validation, not for App Store upload)
-- `SKIP_EXPORT=1` (archive only; skip `.ipa` export)
-- `ALLOW_PROVISIONING_UPDATES=1` (default, allow Xcode to fetch provisioning when signed with Apple account)
-
-### Note
-
-For production use, set `VITE_API_BASE_URL` to HTTPS.
-
-## Deploy API Backend to VPS
-
-See [DEPLOY_VPS.md](/Users/zhangzc/Documents/指标/CashMind/DEPLOY_VPS.md) for a full deployment guide with PM2 + Nginx + `.env` and maintenance commands.

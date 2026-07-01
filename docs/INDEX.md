@@ -1,0 +1,23 @@
+# CashMind 文档索引
+
+这套文档服务于 1.0 浏览器/PWA 版本，重点是让核心无感记账链路可部署、可配置、可验证、可长期迭代。
+
+## 产品和使用
+
+- [1.0 产品范围](PRODUCT_1_0.md): 当前要做什么、不做什么、核心卖点和验收标准。
+- [浏览器/PWA 使用说明](PWA_BROWSER.md): 手机浏览器使用、添加到主屏幕、首次 token 设置。
+- [iPhone 快捷指令配置](SHORTCUTS.md): Wallet、短信、邮件、OCR 文本导入的配置方式。
+
+## 工程和服务端
+
+- [API 接口说明](API.md): Token 权限边界、接口列表、请求示例、响应说明。
+- [VPS 部署说明](DEPLOYMENT.md): 远端目录、环境变量、部署命令、PM2、HTTPS 建议。
+- [运维手册](OPERATIONS.md): 日常检查、日志、备份、恢复、token 轮换、故障处理。
+
+## 当前 1.0 结论
+
+1. 先做 Web/PWA，不做原生 iOS App。
+2. 无感采集依赖 iPhone 快捷指令，不依赖浏览器后台监听。
+3. 服务端部署在 VPS，生产数据落 SQLite。
+4. `SHORTCUT_TOKEN` 只允许写入，`APP_ACCESS_TOKEN` 才允许读取和编辑。
+5. 绑定 HTTPS 域名是下一步提升 PWA 体验和安全性的关键动作。
