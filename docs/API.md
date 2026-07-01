@@ -35,6 +35,7 @@ Authorization: Bearer YOUR_SHORTCUT_TOKEN
 
 保护范围：
 
+- 万能捕获入口
 - Wallet 导入
 - 文本导入
 
@@ -173,31 +174,43 @@ Body:
 
 以下接口都需要 `SHORTCUT_TOKEN`。
 
-### Wallet 导入
+### 万能捕获入口
 
 ```http
-POST /api/ingest/wallet
+POST /api/shortcut/capture
 ```
 
-Body:
+推荐给快捷指令使用这个入口。token 可以放在 Header、`x-cashmind-token`、JSON body 的 `token` 字段，或 URL query 的 `token` 字段。
+
+Wallet / Apple Pay Body:
 
 ```json
 {
+  "token": "YOUR_SHORTCUT_TOKEN",
   "amount": 28,
   "merchant": "星巴克",
+  "card": "招商银行",
   "currency": "CNY",
-  "date": "2026-07-02T10:00:00.000Z",
-  "id": "optional-wallet-transaction-id"
+  "source": "wallet"
 }
 ```
 
-成功响应：
+短信 / 邮件 / OCR Body:
+
+```json
+{
+  "token": "YOUR_SHORTCUT_TOKEN",
+  "text": "您尾号1234卡消费人民币28.00元，商户：星巴克",
+  "source": "sms"
+}
+```
+
+成功响应示例：
 
 ```json
 {
   "success": true,
-  "source": "wallet",
-  "parser": "structured",
+  "mode": "structured",
   "duplicate": false,
   "transaction": {
     "id": "..."
@@ -206,11 +219,25 @@ Body:
 }
 ```
 
+### Wallet 导入
+
+```http
+POST /api/ingest/wallet
+```
+
+兼容旧快捷指令。必须通过 Header 传 token：
+
+```text
+Authorization: Bearer YOUR_SHORTCUT_TOKEN
+```
+
 ### 文本导入
 
 ```http
 POST /api/ingest/text
 ```
+
+兼容旧快捷指令。必须通过 Header 传 token。
 
 Body:
 

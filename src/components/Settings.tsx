@@ -5,9 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Budget, Currency, Transaction } from '../types';
 import { useToast } from './Toast';
 import { format } from 'date-fns';
-import { getApiUrl } from '../lib/api';
-import { useCashMindTokens } from '../hooks/useCashMindTokens';
-import TokenInput from './TokenInput';
+import ShortcutAutomationCard from './ShortcutAutomationCard';
 
 interface SettingsProps {
   transactions?: Transaction[];
@@ -30,19 +28,6 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
   const [budgetAmount, setBudgetAmount] = useState('');
   const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
   const { showToast } = useToast();
-  const {
-    appAccessToken,
-    setAppAccessToken,
-    appTokenStatusText,
-    saveAppAccessToken,
-    shortcutToken,
-    setShortcutToken,
-    shortcutTokenStatusText,
-    saveShortcutToken,
-    copyShortcutToken,
-  } = useCashMindTokens();
-  const walletIngestUrl = getApiUrl('/api/ingest/wallet');
-  const textIngestUrl = getApiUrl('/api/ingest/text');
 
   const [defaultCurrency, setDefaultCurrency] = useState<Currency>(() => {
     return (localStorage.getItem('gqh_default_currency') as Currency) || 'CNY';
@@ -146,69 +131,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
       </div>
 
       <div className="px-6 pt-6 pb-6 relative z-10">
-        {/* Shortcuts Integration */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] mb-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-              <Icons.Zap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">自动化引擎</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">配置 iOS 快捷指令实现无感记账</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <TokenInput
-              label="App 访问 Token"
-              value={appAccessToken}
-              onChange={setAppAccessToken}
-              onSave={saveAppAccessToken}
-              placeholder="粘贴 VPS .env 里的 APP_ACCESS_TOKEN"
-              statusText={appTokenStatusText}
-            />
-
-            <TokenInput
-              label="快捷指令 Token"
-              value={shortcutToken}
-              onChange={setShortcutToken}
-              onSave={saveShortcutToken}
-              onCopy={copyShortcutToken}
-              placeholder="粘贴 VPS .env 里的 SHORTCUT_TOKEN"
-              statusText={shortcutTokenStatusText}
-            />
-
-            <div className="pt-4 border-t border-black/5 dark:border-white/10">
-              <button 
-                onClick={() => setActiveModal('tutorial')}
-                className="w-full flex items-center justify-between p-3 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-2xl font-medium transition-colors hover:bg-indigo-500/20 dark:hover:bg-indigo-500/30"
-              >
-                <span className="flex items-center gap-2">
-                  <Icons.Download className="w-4 h-4" />
-                  配置无感记账
-                </span>
-                <Icons.ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div>
-              <button 
-                onClick={() => setActiveModal('tutorial')}
-                className="w-full flex items-center justify-between p-3 bg-white/50 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-2xl font-medium transition-colors hover:bg-white/80 dark:hover:bg-white/10 mt-2"
-              >
-                <span className="flex items-center gap-2">
-                  <Icons.BookOpen className="w-4 h-4" />
-                  查看配置教程
-                </span>
-                <Icons.ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </motion.div>
+        <ShortcutAutomationCard onOpenGuide={() => setActiveModal('tutorial')} />
 
         {/* General Settings */}
         <motion.div 
@@ -389,48 +312,33 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                 {activeModal === 'tutorial' && (
                   <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
                     <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/80 dark:bg-indigo-950/20 p-4">
-                      <p className="font-semibold text-gray-900 dark:text-white">通用请求头</p>
-                      <p className="mt-2">所有自动化都使用 <strong>获取 URL 内容</strong>，方法选择 <strong>POST</strong>。</p>
-                      <span className="inline-block mt-1 bg-gray-100 dark:bg-zinc-800 p-1.5 rounded">
-                        键: <code>Authorization</code><br/>
-                        值: <code>Bearer {shortcutToken.trim() || '你保存的快捷指令 Token'}</code>
-                      </span>
+                      <p className="font-semibold text-gray-900 dark:text-white">现在只需要一个入口</p>
+                      <p className="mt-2">在上方保存快捷指令 Token，然后点 <strong>复制完整配置包</strong>。配置包里已经带好 URL、请求体模板和 token，不需要再手动拼 Header。</p>
                     </div>
 
                     <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
-                      <p className="font-semibold text-gray-900 dark:text-white">1. Wallet / Apple Pay 全自动</p>
-                      <p className="mt-2">自动化触发器选择 <strong>交易 / Wallet</strong>，选择要监听的卡，运行方式选择立即运行。</p>
-                      <code className="bg-white dark:bg-zinc-900 p-1.5 rounded block mt-2 break-all select-all">
-                        {walletIngestUrl || '请在原生端配置 VITE_API_BASE_URL'}
-                      </code>
-                      <p className="mt-2">JSON Body：</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">1. Wallet / Apple Pay</p>
+                      <p className="mt-2">自动化触发器选 <strong>交易 / Wallet</strong>，卡片和类别全选，运行方式选立即运行。</p>
+                      <p className="mt-2">动作只加一个：<strong>获取 URL 内容</strong>。URL 用配置包里的“通用入口 URL”，方法选 POST，请求体选 JSON。</p>
                       <ul className="list-disc pl-5 space-y-1">
                         <li><code>amount</code>: Shortcut Input 的 Amount</li>
                         <li><code>merchant</code>: Shortcut Input 的 Merchant 或 Name</li>
-                        <li><code>currency</code>: CNY</li>
+                        <li><code>card</code>: Shortcut Input 的 Card</li>
                       </ul>
                     </div>
 
                     <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
-                      <p className="font-semibold text-gray-900 dark:text-white">2. 短信 / 邮件自动解析</p>
-                      <p className="mt-2">触发器选择收到信息或收到邮件，筛选银行、账单或支付关键词。</p>
-                      <code className="bg-white dark:bg-zinc-900 p-1.5 rounded block mt-2 break-all select-all">
-                        {textIngestUrl || '请在原生端配置 VITE_API_BASE_URL'}
-                      </code>
-                      <p className="mt-2">JSON Body：</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">2. 短信 / 邮件 / OCR</p>
+                      <p className="mt-2">触发器选择收到信息、收到邮件，或手动 OCR。动作还是同一个 <strong>获取 URL 内容</strong>，URL 不变，只换文本模板。</p>
                       <ul className="list-disc pl-5 space-y-1">
-                        <li><code>text</code>: 短信或邮件正文</li>
-                        <li><code>source</code>: sms 或 email</li>
+                        <li><code>text</code>: Shortcut Input 或 OCR 文字</li>
+                        <li><code>source</code>: sms、email 或 ocr</li>
                       </ul>
                     </div>
 
                     <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
-                      <p className="font-semibold text-gray-900 dark:text-white">3. 截图 OCR 兜底</p>
-                      <p className="mt-2">快捷指令执行截图，提取图片文字，再把文字发到同一个文本导入接口。</p>
-                      <ul className="list-disc pl-5 space-y-1 mt-2">
-                        <li><code>text</code>: 提取出的文字</li>
-                        <li><code>source</code>: ocr</li>
-                      </ul>
+                      <p className="font-semibold text-gray-900 dark:text-white">3. 配好后先自检</p>
+                      <p className="mt-2">回到设置页点 <strong>自检写入</strong>。如果成功，说明 token、VPS、接口都通了；然后再去刷一次 Apple Pay 或发一条测试短信。</p>
                     </div>
                   </div>
                 )}

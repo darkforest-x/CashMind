@@ -187,6 +187,18 @@ function readBoolean(body: Record<string, unknown>, key: string): boolean {
   return body[key] === true || body[key] === "true" || body[key] === 1;
 }
 
+function readQueryString(req: express.Request, key: string): string {
+  const value = req.query[key];
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (Array.isArray(value)) {
+    const firstString = value.find((item): item is string => typeof item === "string");
+    return firstString?.trim() || "";
+  }
+  return "";
+}
+
 function normalizeCurrency(value: unknown): CurrencyCode {
   const text = typeof value === "string" ? value.trim().toUpperCase() : "";
   if (text === "USD") return "USD";
@@ -508,6 +520,63 @@ function saveIngestedTransaction(
   return { duplicate: false, transaction: storedTransaction, dedupeKey };
 }
 
+function buildStructuredTransaction(body: Record<string, unknown>, fallbackSource: IngestSource): ParsedTransaction | null {
+  const amount = coerceAmount(body.amount ?? body.Amount ?? body.total ?? body.value);
+  if (amount === null) {
+    return null;
+  }
+
+  const merchant = readString(body, ["merchant", "Merchant", "name", "Name", "payee", "title"]);
+  const card = readString(body, ["card", "Card", "account"]);
+  const note = readString(body, ["note", "description"]) || merchant || card || "Wallet 交易";
+  const sourceText = [merchant, card, note].filter(Boolean).join(" ");
+  return {
+    amount,
+    type: normalizeType(body.type, sourceText),
+    category: normalizeCategory(body.category, sourceText),
+    date: normalizeDate(readString(body, ["date", "time", "createdAt"])),
+    note,
+    source: normalizeSource(body.source, fallbackSource),
+    currency: normalizeCurrency(body.currency),
+    confidence: 0.95,
+  };
+}
+
+function buildShortcutCaptureBody(req: express.Request): Record<string, unknown> {
+  const body = req.body;
+  if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (!trimmed) {
+      return {};
+    }
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (isRecord(parsed)) {
+        return parsed;
+      }
+    } catch {
+      return { text: trimmed };
+    }
+    return { text: trimmed };
+  }
+  return isRecord(body) ? body : {};
+}
+
+function isAuthorizedShortcutCaptureRequest(req: express.Request, body: Record<string, unknown>): boolean {
+  const expectedToken = process.env.SHORTCUT_TOKEN;
+  if (!expectedToken) {
+    return false;
+  }
+  if (isBearerAuthorized(req, expectedToken)) {
+    return true;
+  }
+
+  const bodyToken = readString(body, ["token", "shortcutToken", "SHORTCUT_TOKEN"]);
+  const queryToken = readQueryString(req, "token") || readQueryString(req, "shortcutToken");
+  const headerToken = req.get("x-cashmind-token")?.trim() || "";
+  return bodyToken === expectedToken || queryToken === expectedToken || headerToken === expectedToken;
+}
+
 function isAuthorizedShortcutRequest(req: express.Request): boolean {
   return isBearerAuthorized(req, process.env.SHORTCUT_TOKEN);
 }
@@ -538,6 +607,8 @@ async function startServer() {
   const HOST = process.env.HOST || "0.0.0.0";
 
   app.use(express.json({ limit: "2mb" }));
+  app.use(express.text({ type: "text/plain", limit: "2mb" }));
+  app.use(express.urlencoded({ extended: false, limit: "2mb" }));
   const appApi = express.Router();
   appApi.use(requireAppAccess);
 
@@ -701,25 +772,10 @@ async function startServer() {
     }
 
     const body = isRecord(req.body) ? req.body : {};
-    const amount = coerceAmount(body.amount ?? body.Amount ?? body.total ?? body.value);
-    if (amount === null) {
+    const transaction = buildStructuredTransaction(body, "wallet");
+    if (!transaction) {
       return res.status(400).json({ error: "A valid amount is required" });
     }
-
-    const merchant = readString(body, ["merchant", "Merchant", "name", "Name", "payee", "title"]);
-    const card = readString(body, ["card", "Card", "account"]);
-    const note = readString(body, ["note", "description"]) || merchant || card || "Wallet 交易";
-    const sourceText = [merchant, card, note].filter(Boolean).join(" ");
-    const transaction: ParsedTransaction = {
-      amount,
-      type: normalizeType(body.type, sourceText),
-      category: normalizeCategory(body.category, sourceText),
-      date: normalizeDate(readString(body, ["date", "time", "createdAt"])),
-      note,
-      source: "wallet",
-      currency: normalizeCurrency(body.currency),
-      confidence: 0.95,
-    };
 
     try {
       const externalId = readString(body, ["id", "transactionId", "externalId"]);
@@ -740,6 +796,69 @@ async function startServer() {
     } catch (error) {
       console.error("Failed to ingest wallet transaction:", error);
       res.status(500).json({ error: "Failed to ingest wallet transaction" });
+    }
+  });
+
+  app.post("/api/shortcut/capture", async (req, res) => {
+    const body = buildShortcutCaptureBody(req);
+    if (!isAuthorizedShortcutCaptureRequest(req, body)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const structuredTransaction = buildStructuredTransaction(body, "wallet");
+    if (structuredTransaction) {
+      try {
+        const saved = saveIngestedTransaction(structuredTransaction, {
+          rawPayload: body,
+          externalId: readString(body, ["id", "transactionId", "externalId"]),
+          dryRun: readBoolean(body, "dryRun"),
+        });
+        return res.json({
+          success: true,
+          mode: "structured",
+          duplicate: saved.duplicate,
+          transaction: saved.transaction,
+          confidence: structuredTransaction.confidence,
+        });
+      } catch (error) {
+        console.error("Failed to capture structured shortcut transaction:", error);
+        return res.status(500).json({ error: "Failed to capture transaction" });
+      }
+    }
+
+    const text = readString(body, ["text", "rawText", "message", "body", "content"]);
+    if (!text) {
+      return res.status(400).json({ error: "Amount or text is required" });
+    }
+
+    const source = normalizeSource(body.source, "shortcut");
+    try {
+      const parsed = await parseTextTransaction(text, source);
+      if (!parsed.transaction) {
+        return res.status(422).json({
+          success: false,
+          error: "No transaction detected",
+          parser: parsed.parser,
+          reason: parsed.reason,
+        });
+      }
+
+      const saved = saveIngestedTransaction(parsed.transaction, {
+        rawPayload: body,
+        externalId: readString(body, ["id", "messageId", "mailId", "externalId"]),
+        dryRun: readBoolean(body, "dryRun"),
+      });
+      return res.json({
+        success: true,
+        mode: "text",
+        parser: parsed.parser,
+        duplicate: saved.duplicate,
+        transaction: saved.transaction,
+        confidence: parsed.transaction.confidence,
+      });
+    } catch (error) {
+      console.error("Failed to capture shortcut text transaction:", error);
+      return res.status(500).json({ error: "Failed to capture transaction" });
     }
   });
 
