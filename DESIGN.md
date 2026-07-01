@@ -97,16 +97,16 @@ All spacing derives from 4px.
 - **Structure**: label, password input, save button, optional copy button, status text.
 - **Variants**: app token, shortcut token.
 - **Spacing**: 8px label gap, 4px inner button shell, 12px input padding.
-- **States**: default, focus, hover, disabled not currently used.
+- **States**: default, focus, hover, disabled not currently used; action buttons keep a fixed minimum width on mobile.
 - **Accessibility**: label remains visible; button text is explicit.
 - **Motion**: no layout animation.
 
 ### Shortcut Automation Card
 
-- **Structure**: header, token inputs, universal capture URL, self-test, copy actions, guide entry.
-- **Variants**: normal and testing state.
+- **Structure**: header, token inputs, universal capture URL, self-test, copy actions, guide entry, manual copy fallback panel.
+- **Variants**: normal, testing state, and manual copy fallback when the system blocks automatic clipboard access.
 - **Spacing**: 24px card padding, 16px stacked groups, 8px button grid.
-- **States**: default, hover, disabled while testing, success/error toast.
+- **States**: default, hover, disabled while testing, success/info/error toast.
 - **Accessibility**: every icon button has text; loading state keeps label visible.
 - **Motion**: card uses standard mount motion; loader spins only during request.
 

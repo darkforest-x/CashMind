@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed top-4 inset-x-0 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4">
+      <div className="fixed top-[calc(env(safe-area-inset-top)+1rem)] inset-x-0 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {toast.type === 'success' && <Icons.CheckCircle2 className="w-5 h-5" />}
               {toast.type === 'error' && <Icons.AlertCircle className="w-5 h-5" />}
               {toast.type === 'info' && <Icons.Info className="w-5 h-5" />}
-              <span className="font-medium text-sm">{toast.message}</span>
+              <span className="min-w-0 font-medium text-sm leading-snug">{toast.message}</span>
             </motion.div>
           ))}
         </AnimatePresence>

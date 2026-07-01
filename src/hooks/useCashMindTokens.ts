@@ -118,21 +118,6 @@ export function useCashMindTokens() {
     showToast('快捷指令 Token 已保存在本机', 'success');
   };
 
-  const copyShortcutToken = async () => {
-    const normalizedToken = shortcutToken.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴并保存快捷指令 Token', 'error');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(normalizedToken);
-      showToast('快捷指令 Token 已复制到剪贴板', 'success');
-    } catch (error) {
-      console.error('Failed to copy token:', error instanceof Error ? error.message : String(error));
-      showToast('复制失败，请手动选择 Token', 'error');
-    }
-  };
-
   return {
     appAccessToken,
     setAppAccessToken,
@@ -142,6 +127,5 @@ export function useCashMindTokens() {
     setShortcutToken,
     shortcutTokenStatusText: `${getTokenStatusText(shortcutTokenStatus, shortcutTokenHint, 'SHORTCUT_TOKEN')}。用于 iPhone 快捷指令写入账单。`,
     saveShortcutToken,
-    copyShortcutToken,
   };
 }
