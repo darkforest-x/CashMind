@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import { formatISO, subDays } from "date-fns";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { buildTokenStatus, isBearerAuthorized } from "./server/auth";
 
 dotenv.config({ path: ".env.local", quiet: true });
 dotenv.config({ quiet: true });
@@ -508,17 +509,27 @@ function saveIngestedTransaction(
 }
 
 function isAuthorizedShortcutRequest(req: express.Request): boolean {
-  const expectedToken = process.env.SHORTCUT_TOKEN;
-  const authHeader = req.headers.authorization;
-  return Boolean(expectedToken && authHeader === `Bearer ${expectedToken}`);
+  return isBearerAuthorized(req, process.env.SHORTCUT_TOKEN);
+}
+
+function isAuthorizedAppRequest(req: express.Request): boolean {
+  return isBearerAuthorized(req, process.env.APP_ACCESS_TOKEN);
+}
+
+function requireAppAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!isAuthorizedAppRequest(req)) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
 }
 
 function shouldExposeShortcutToken(): boolean {
   return process.env.EXPOSE_SHORTCUT_TOKEN === "1" || process.env.NODE_ENV !== "production";
 }
 
-function getShortcutTokenHint(token: string): string {
-  return token.length > 4 ? token.slice(-4) : "****";
+function shouldExposeAppAccessToken(): boolean {
+  return process.env.EXPOSE_APP_ACCESS_TOKEN === "1" || process.env.NODE_ENV !== "production";
 }
 
 async function startServer() {
@@ -527,19 +538,21 @@ async function startServer() {
   const HOST = process.env.HOST || "0.0.0.0";
 
   app.use(express.json({ limit: "2mb" }));
+  const appApi = express.Router();
+  appApi.use(requireAppAccess);
 
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
-  app.get("/api/transactions", (req, res) => {
+  appApi.get("/transactions", (req, res) => {
     const stmt = db.prepare("SELECT * FROM transactions ORDER BY date DESC");
     const transactions = stmt.all();
     res.json(transactions);
   });
 
-  app.post("/api/transactions", (req, res) => {
+  appApi.post("/transactions", (req, res) => {
     const newTx = {
       id: Date.now().toString(),
       amount: req.body.amount,
@@ -560,13 +573,13 @@ async function startServer() {
     res.json(newTx);
   });
 
-  app.get("/api/budgets", (req, res) => {
+  appApi.get("/budgets", (req, res) => {
     const stmt = db.prepare("SELECT * FROM budgets ORDER BY month DESC");
     const budgets = stmt.all();
     res.json(budgets);
   });
 
-  app.post("/api/budgets", (req, res) => {
+  appApi.post("/budgets", (req, res) => {
     const { amount, month } = req.body;
     if (!amount || !month) {
       return res.status(400).json({ error: "Amount and month are required" });
@@ -592,7 +605,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/ai/classify", async (req, res) => {
+  appApi.post("/ai/classify", async (req, res) => {
     try {
       const { amount, note } = req.body;
       if (!amount || !note) {
@@ -654,7 +667,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/transactions/:id", (req, res) => {
+  appApi.put("/transactions/:id", (req, res) => {
     const { amount, type, category, date, note, source, currency } = req.body;
     const stmt = db.prepare(`
       UPDATE transactions 
@@ -676,7 +689,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.delete("/api/transactions/:id", (req, res) => {
+  appApi.delete("/transactions/:id", (req, res) => {
     const stmt = db.prepare("DELETE FROM transactions WHERE id = ?");
     stmt.run(req.params.id);
     res.json({ success: true });
@@ -775,22 +788,11 @@ async function startServer() {
   });
 
   app.get("/api/shortcut/token", (req, res) => {
-    const token = process.env.SHORTCUT_TOKEN;
-    if (!token) {
-      res.json({ configured: false });
-      return;
-    }
+    res.json(buildTokenStatus(process.env.SHORTCUT_TOKEN, shouldExposeShortcutToken()));
+  });
 
-    const payload = {
-      configured: true,
-      hint: getShortcutTokenHint(token),
-    };
-    if (shouldExposeShortcutToken()) {
-      res.json({ ...payload, token });
-      return;
-    }
-
-    res.json(payload);
+  app.get("/api/app/token", (req, res) => {
+    res.json(buildTokenStatus(process.env.APP_ACCESS_TOKEN, shouldExposeAppAccessToken()));
   });
 
   app.post("/api/shortcut/add", (req, res) => {
@@ -827,6 +829,8 @@ async function startServer() {
       res.status(500).json({ error: "Failed to save transaction" });
     }
   });
+
+  app.use("/api", appApi);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

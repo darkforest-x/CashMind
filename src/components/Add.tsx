@@ -1,24 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, Category, Currency } from '../types';
-import { MOCK_CATEGORIES } from '../data';
+import { Transaction, Currency } from '../types';
 import * as Icons from 'lucide-react';
 import { cn, getCurrencySymbol } from '../lib/utils';
 import { formatISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from './Toast';
-import { getApiUrl, hasApiBackend } from '../lib/api';
+import { apiFetch, hasApiBackend } from '../lib/api';
+import { AiSuggestion, parseAiSuggestions } from '../lib/aiSuggestions';
+import Numpad from './Numpad';
 
 interface AddProps {
   onAdd: (t: Transaction) => void;
   onUpdate?: (t: Transaction) => void;
   initialData?: Transaction | null;
   onCancelEdit?: () => void;
-}
-
-interface AiSuggestion {
-  cat: string;
-  prob: number;
-  label: string;
 }
 
 export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddProps) {
@@ -43,36 +38,22 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
     const classify = async () => {
       setIsClassifying(true);
       try {
-        const endpoint = getApiUrl('/api/ai/classify');
-        if (!endpoint) {
-          if (!hasApiBackend()) {
-            setIsClassifying(false);
-            return;
-          }
-          throw new Error('No API endpoint configured');
+        if (!hasApiBackend()) {
+          setIsClassifying(false);
+          return;
         }
 
-        const res = await fetch(endpoint, {
+        const res = await apiFetch('/api/ai/classify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: numAmount, note }),
         });
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const suggestions = data.map((item: any) => {
-              const catObj = MOCK_CATEGORIES.find(c => c.id === item.category);
-              return {
-                cat: item.category,
-                prob: Math.round(item.probability * 100),
-                label: catObj ? catObj.name : item.category
-              };
-            });
+          const suggestions = parseAiSuggestions(await res.json());
+          if (suggestions.length > 0) {
             setAiSuggestions(suggestions);
-            if (suggestions.length > 0) {
-              setCategory(suggestions[0].cat);
-              showToast(`AI 建议分类: ${suggestions[0].label}`, 'info');
-            }
+            setCategory(suggestions[0].cat);
+            showToast(`AI 建议分类: ${suggestions[0].label}`, 'info');
           }
         } else {
            showToast('AI 分类失败，请稍后重试', 'error');
@@ -261,36 +242,7 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-3 flex-1 max-h-[320px]">
-          {['1', '2', '3', 'C', '4', '5', '6', 'DEL', '7', '8', '9', 'OK', '0', '.'].map((key, i) => {
-            if (key === 'OK') {
-              return (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  key={key}
-                  onClick={handleSave}
-                  className="col-span-1 row-span-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center justify-center font-semibold text-xl shadow-sm transition-colors"
-                >
-                  保存
-                </motion.button>
-              );
-            }
-            return (
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                key={key}
-                onClick={() => handleNumpad(key)}
-                className={cn(
-                  "bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-3xl flex items-center justify-center text-2xl font-medium shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-colors",
-                  key === 'C' || key === 'DEL' ? "text-red-500" : "text-gray-900 dark:text-white",
-                  key === '0' ? "col-span-2" : ""
-                )}
-              >
-                {key === 'DEL' ? <Icons.Delete className="w-6 h-6" /> : key}
-              </motion.button>
-            );
-          })}
-        </div>
+        <Numpad onInput={handleNumpad} onSave={handleSave} />
       </div>
     </div>
   );

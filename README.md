@@ -32,6 +32,14 @@ Content-Type: application/json
 
 `YOUR_SHORTCUT_TOKEN` 来自服务端 `.env` 里的 `SHORTCUT_TOKEN`。生产部署后 `/api/shortcut/token` 只返回是否已配置和尾号，不会在公网展示完整 Token；在 App 的设置页把这个 Token 粘贴并保存到本机后，再复制到 iPhone 快捷指令的请求头里。
 
+App 读取、编辑账单和调用 AI 分类接口使用单独的 `APP_ACCESS_TOKEN`。生产部署后所有账单 API 都需要：
+
+```text
+Authorization: Bearer YOUR_APP_ACCESS_TOKEN
+```
+
+`YOUR_APP_ACCESS_TOKEN` 来自服务端 `.env` 里的 `APP_ACCESS_TOKEN`，只保存在 App 本机浏览器或 iOS WebView 中。
+
 ### Wallet / Apple Pay 全自动
 
 快捷指令自动化触发器选择 **交易 / Wallet**，在刷 Wallet 卡后自动请求：

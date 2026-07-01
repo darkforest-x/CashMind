@@ -6,19 +6,13 @@ import { Budget, Currency, Transaction } from '../types';
 import { useToast } from './Toast';
 import { format } from 'date-fns';
 import { getApiUrl } from '../lib/api';
+import { useCashMindTokens } from '../hooks/useCashMindTokens';
+import TokenInput from './TokenInput';
 
 interface SettingsProps {
   transactions?: Transaction[];
   budgets?: Budget[];
   onUpdateBudgets?: (budgets: Budget[]) => Promise<void> | void;
-}
-
-type ShortcutTokenStatus = 'checking' | 'configured' | 'missing' | 'unavailable';
-
-const SHORTCUT_TOKEN_STORAGE_KEY = 'cashmind_shortcut_token';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getSourceLabel(source: Transaction['source']) {
@@ -36,9 +30,17 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
   const [budgetAmount, setBudgetAmount] = useState('');
   const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
   const { showToast } = useToast();
-  const [token, setToken] = useState(() => localStorage.getItem(SHORTCUT_TOKEN_STORAGE_KEY) || '');
-  const [tokenStatus, setTokenStatus] = useState<ShortcutTokenStatus>('checking');
-  const [tokenHint, setTokenHint] = useState('');
+  const {
+    appAccessToken,
+    setAppAccessToken,
+    appTokenStatusText,
+    saveAppAccessToken,
+    shortcutToken,
+    setShortcutToken,
+    shortcutTokenStatusText,
+    saveShortcutToken,
+    copyShortcutToken,
+  } = useCashMindTokens();
   const walletIngestUrl = getApiUrl('/api/ingest/wallet');
   const textIngestUrl = getApiUrl('/api/ingest/text');
 
@@ -49,46 +51,6 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
   useEffect(() => {
     localStorage.setItem('gqh_default_currency', defaultCurrency);
   }, [defaultCurrency]);
-
-  useEffect(() => {
-    const tokenUrl = getApiUrl('/api/shortcut/token');
-    if (!tokenUrl) {
-      setTokenStatus('unavailable');
-      return;
-    }
-
-    let didCancel = false;
-    fetch(tokenUrl)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data: unknown) => {
-        if (didCancel || !isRecord(data)) {
-          return;
-        }
-        setTokenStatus(data.configured === true ? 'configured' : 'missing');
-        setTokenHint(typeof data.hint === 'string' ? data.hint : '');
-        const exposedToken = typeof data.token === 'string' ? data.token : '';
-        if (exposedToken && !localStorage.getItem(SHORTCUT_TOKEN_STORAGE_KEY)) {
-          localStorage.setItem(SHORTCUT_TOKEN_STORAGE_KEY, exposedToken);
-          setToken(exposedToken);
-        }
-      })
-      .catch((error: unknown) => {
-        if (didCancel) {
-          return;
-        }
-        console.error('Failed to read token status:', error instanceof Error ? error.message : String(error));
-        setTokenStatus('unavailable');
-      });
-
-    return () => {
-      didCancel = true;
-    };
-  }, []);
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('gqh_dark_mode');
@@ -106,39 +68,6 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
-
-  const handleSaveToken = () => {
-    const normalizedToken = token.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴 VPS 上的 SHORTCUT_TOKEN', 'error');
-      return;
-    }
-    localStorage.setItem(SHORTCUT_TOKEN_STORAGE_KEY, normalizedToken);
-    setToken(normalizedToken);
-    showToast('Token 已保存在本机', 'success');
-  };
-
-  const handleCopy = async () => {
-    const normalizedToken = token.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴并保存 Token', 'error');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(normalizedToken);
-      showToast('Token 已复制到剪贴板', 'success');
-    } catch (error) {
-      console.error('Failed to copy token:', error instanceof Error ? error.message : String(error));
-      showToast('复制失败，请手动选择 Token', 'error');
-    }
-  };
-
-  const getTokenStatusText = () => {
-    if (tokenStatus === 'checking') return '正在检查服务端 Token 状态...';
-    if (tokenStatus === 'configured') return tokenHint ? `服务端已配置，尾号 ${tokenHint}` : '服务端已配置';
-    if (tokenStatus === 'missing') return '服务端还没有配置 SHORTCUT_TOKEN';
-    return '当前环境无法读取服务端状态，请确认 API 地址';
-  };
 
   const handleExport = async () => {
     try {
@@ -235,36 +164,24 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                API Token
-              </label>
-              <div className="flex bg-white/50 dark:bg-black/50 backdrop-blur-md rounded-2xl p-1 border border-white/40 dark:border-white/10 shadow-inner">
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value)}
-                  placeholder="粘贴 VPS .env 里的 SHORTCUT_TOKEN"
-                  autoComplete="off"
-                  className="flex-1 bg-transparent border-none px-3 py-2 text-sm text-gray-600 dark:text-gray-300 focus:ring-0 focus:outline-none"
-                />
-                <button
-                  onClick={handleSaveToken}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm hover:bg-indigo-700 transition-colors"
-                >
-                  保存
-                </button>
-                <button
-                  onClick={handleCopy}
-                  className="bg-white/80 dark:bg-white/20 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-xl text-sm font-medium shadow-sm border border-white/40 dark:border-white/10 hover:bg-white dark:hover:bg-white/30 transition-colors"
-                >
-                  复制
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {getTokenStatusText()}。Token 只保存在本机浏览器，用于配置快捷指令请求头。
-              </p>
-            </div>
+            <TokenInput
+              label="App 访问 Token"
+              value={appAccessToken}
+              onChange={setAppAccessToken}
+              onSave={saveAppAccessToken}
+              placeholder="粘贴 VPS .env 里的 APP_ACCESS_TOKEN"
+              statusText={appTokenStatusText}
+            />
+
+            <TokenInput
+              label="快捷指令 Token"
+              value={shortcutToken}
+              onChange={setShortcutToken}
+              onSave={saveShortcutToken}
+              onCopy={copyShortcutToken}
+              placeholder="粘贴 VPS .env 里的 SHORTCUT_TOKEN"
+              statusText={shortcutTokenStatusText}
+            />
 
             <div className="pt-4 border-t border-black/5 dark:border-white/10">
               <button 
@@ -476,7 +393,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                       <p className="mt-2">所有自动化都使用 <strong>获取 URL 内容</strong>，方法选择 <strong>POST</strong>。</p>
                       <span className="inline-block mt-1 bg-gray-100 dark:bg-zinc-800 p-1.5 rounded">
                         键: <code>Authorization</code><br/>
-                        值: <code>Bearer {token.trim() || '你保存的 Token'}</code>
+                        值: <code>Bearer {shortcutToken.trim() || '你保存的快捷指令 Token'}</code>
                       </span>
                     </div>
 
@@ -524,7 +441,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">1. 信息收集与存储</h4>
                     <p>本应用作为本地/个人服务器部署的工具，所有账单数据均存储在您的服务器或本地浏览器中。我们不会将您的财务数据上传至任何第三方商业服务器。</p>
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">2. API Token 使用</h4>
-                    <p>API Token 仅用于验证您本人的快捷指令请求。正式部署后应用不会通过公网接口展示完整 Token，如发生泄露，请在 VPS 的 .env 中更换 SHORTCUT_TOKEN。</p>
+                    <p>App 访问 Token 用于保护账单读取和编辑接口，快捷指令 Token 仅用于验证自动化写入请求。正式部署后应用不会通过公网接口展示完整 Token，如发生泄露，请在 VPS 的 .env 中更换对应 Token。</p>
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">3. 免责声明</h4>
                     <p>本应用按“原样”提供，不对数据的绝对安全性做任何明示或暗示的保证。建议您定期使用“导出 CSV”功能备份数据。</p>
                   </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, where } from 'firebase/firestore';
 import { auth, db, logout } from '../lib/firebase';
-import { apiFetch, hasApiBackend } from '../lib/api';
+import { APP_ACCESS_TOKEN_UPDATED_EVENT, apiFetch, hasApiBackend } from '../lib/api';
 import { getErrorMessage, parseBudgetList, parseTransaction, parseTransactionList, readJson, sortTransactions } from '../lib/apiParsers';
 import type { Budget, Transaction } from '../types';
 import { useToast } from '../components/Toast';
@@ -57,12 +57,17 @@ export function useCashMindData() {
         void loadApiData(false);
       }
     };
+    const refreshAfterTokenUpdate = () => {
+      void loadApiData();
+    };
 
     window.addEventListener('focus', refreshWhenVisible);
+    window.addEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refreshAfterTokenUpdate);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       window.clearInterval(intervalId);
       window.removeEventListener('focus', refreshWhenVisible);
+      window.removeEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refreshAfterTokenUpdate);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [isApiBackend, loadApiData]);
