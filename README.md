@@ -25,8 +25,9 @@ iPhone 快捷指令自动化
 已包含：
 
 - 手机浏览器/PWA 使用
-- `APP_ACCESS_TOKEN` 保护账单读取、编辑、预算和 AI 分类接口
-- `SHORTCUT_TOKEN` 保护 iPhone 快捷指令写入接口
+- 服务端自动生成 `APP_ACCESS_TOKEN`、`SHORTCUT_TOKEN` 和新设备设置用的 `SETUP_TOKEN`
+- 已授权浏览器使用 httpOnly Cookie 读取、编辑、预算和 AI 分类
+- 快捷指令模板自动封装写入 token，用户不需要手拼 Header
 - Wallet / Apple Pay 结构化导入
 - 短信、邮件、OCR 文本导入
 - SQLite 本地服务端数据库
@@ -52,10 +53,10 @@ npm run dev
 ```bash
 HOST=127.0.0.1
 PORT=3000
-APP_ACCESS_TOKEN=replace_with_random_app_access_secret
-SHORTCUT_TOKEN=replace_with_random_long_secret
 GEMINI_API_KEY=your_gemini_api_key
 ```
+
+`APP_ACCESS_TOKEN`、`SHORTCUT_TOKEN` 和 `SETUP_TOKEN` 可以不填；服务端首次启动会自动生成并写入 `.env`。本地如需固定测试值，也可以手动放进 `.env.local`。
 
 `GEMINI_API_KEY` 缺失或不可用时，文本导入会尝试使用本地规则兜底，但 AI 分类和复杂文本解析效果会下降。
 
@@ -75,7 +76,7 @@ NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
 pm2 save
 ```
 
-详细部署、回滚、备份和 token 轮换见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 和 [docs/OPERATIONS.md](docs/OPERATIONS.md)。
+详细部署、回滚、备份、设置链接和 token 轮换见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 和 [docs/OPERATIONS.md](docs/OPERATIONS.md)。
 
 ## 文档
 

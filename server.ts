@@ -6,11 +6,10 @@ import { createHash, randomUUID } from "crypto";
 import Database from "better-sqlite3";
 import { formatISO, subDays } from "date-fns";
 import { GoogleGenAI, Type } from "@google/genai";
-import dotenv from "dotenv";
-import { buildTokenStatus, isBearerAuthorized } from "./server/auth";
+import { buildTokenStatus, isAppSessionAuthorized, isBearerAuthorized, setAppSessionCookie } from "./server/auth";
+import { loadRuntimeEnv } from "./server/runtimeEnv";
 
-dotenv.config({ path: ".env.local", quiet: true });
-dotenv.config({ quiet: true });
+loadRuntimeEnv();
 
 let ai: GoogleGenAI | null = null;
 
@@ -542,7 +541,7 @@ function buildStructuredTransaction(body: Record<string, unknown>, fallbackSourc
   };
 }
 
-function buildShortcutCaptureBody(req: express.Request): Record<string, unknown> {
+function buildRequestBody(req: express.Request): Record<string, unknown> {
   const body = req.body;
   if (typeof body === "string") {
     const trimmed = body.trim();
@@ -560,6 +559,10 @@ function buildShortcutCaptureBody(req: express.Request): Record<string, unknown>
     return { text: trimmed };
   }
   return isRecord(body) ? body : {};
+}
+
+function buildShortcutCaptureBody(req: express.Request): Record<string, unknown> {
+  return buildRequestBody(req);
 }
 
 function isAuthorizedShortcutCaptureRequest(req: express.Request, body: Record<string, unknown>): boolean {
@@ -582,7 +585,13 @@ function isAuthorizedShortcutRequest(req: express.Request): boolean {
 }
 
 function isAuthorizedAppRequest(req: express.Request): boolean {
-  return isBearerAuthorized(req, process.env.APP_ACCESS_TOKEN);
+  return isBearerAuthorized(req, process.env.APP_ACCESS_TOKEN) || isAppSessionAuthorized(req, process.env.APP_ACCESS_TOKEN);
+}
+
+function isAuthorizedSetupRequest(body: Record<string, unknown>): boolean {
+  const expectedToken = process.env.SETUP_TOKEN;
+  const setupToken = readString(body, ["setupToken", "setup", "token"]);
+  return Boolean(expectedToken && setupToken === expectedToken);
 }
 
 function requireAppAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -615,6 +624,22 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.get("/api/app/session", (req, res) => {
+    res.json({ authorized: isAuthorizedAppRequest(req) });
+  });
+
+  app.post("/api/app/session", (req, res) => {
+    const appAccessToken = process.env.APP_ACCESS_TOKEN;
+    if (!appAccessToken || !isAuthorizedSetupRequest(buildRequestBody(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const isSecureRequest = req.secure || req.get("x-forwarded-proto") === "https";
+    setAppSessionCookie(res, appAccessToken, isSecureRequest);
+    res.json({ success: true });
   });
 
   appApi.get("/transactions", (req, res) => {
@@ -907,7 +932,7 @@ async function startServer() {
   });
 
   app.get("/api/shortcut/token", (req, res) => {
-    res.json(buildTokenStatus(process.env.SHORTCUT_TOKEN, shouldExposeShortcutToken()));
+    res.json(buildTokenStatus(process.env.SHORTCUT_TOKEN, isAuthorizedAppRequest(req) || shouldExposeShortcutToken()));
   });
 
   app.get("/api/app/token", (req, res) => {

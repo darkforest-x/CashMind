@@ -26,15 +26,22 @@
 HOST=0.0.0.0
 PORT=3000
 GEMINI_API_KEY=your_gemini_api_key
-APP_ACCESS_TOKEN=replace_with_random_app_access_secret
-SHORTCUT_TOKEN=replace_with_random_long_secret
 VITE_API_BASE_URL=
+```
+
+以下密钥可以不手动填。服务端首次启动时会自动生成并追加到 `.env`：
+
+```bash
+APP_ACCESS_TOKEN=
+SHORTCUT_TOKEN=
+SETUP_TOKEN=
 ```
 
 说明：
 
-- `APP_ACCESS_TOKEN`: 浏览器/PWA 读取和编辑账单用。
-- `SHORTCUT_TOKEN`: iPhone 快捷指令写入账单用。
+- `APP_ACCESS_TOKEN`: 浏览器/PWA 读取和编辑账单用；生产环境通过 httpOnly Cookie 使用，不要求用户手填。
+- `SHORTCUT_TOKEN`: iPhone 快捷指令写入账单用；已授权浏览器会自动把它封装到快捷指令模板。
+- `SETUP_TOKEN`: 新设备授权用；只用于生成设置链接，不放进快捷指令。
 - `GEMINI_API_KEY`: AI 分类和文本解析用；不可用时会降级为本地规则。
 - `VITE_API_BASE_URL`: 浏览器同源部署时可以为空；未来如果前后端分域再配置。
 
@@ -73,7 +80,19 @@ pm2 save
 VPS_HOST=103.214.174.58 npm run deploy:vps
 ```
 
-脚本会要求输入 `GEMINI_API_KEY`、`APP_ACCESS_TOKEN` 和 `SHORTCUT_TOKEN`。不要把完整 token 写进命令历史。
+脚本只会要求输入 `GEMINI_API_KEY`。三个 CashMind 密钥可通过环境变量指定；不指定时会优先保留 VPS 现有 `.env`，缺失时由服务端启动后自动生成。
+
+## 设置链接
+
+部署完成并启动服务后，在 VPS 上生成设置链接：
+
+```bash
+cd /var/www/cashmind
+. ./.env
+printf 'http://103.214.174.58:3000/?setup=%s\n' "$SETUP_TOKEN"
+```
+
+用 iPhone Safari 打开该链接一次即可授权浏览器。链接等同于管理入口，不要公开。
 
 ## 部署后验证
 
@@ -101,7 +120,7 @@ curl -i http://103.214.174.58:3000/api/transactions
 HTTP/1.1 401 Unauthorized
 ```
 
-Token 状态接口只应返回尾号：
+Token 状态接口对未授权浏览器只应返回尾号：
 
 ```bash
 curl http://103.214.174.58:3000/api/app/token
@@ -113,6 +132,8 @@ curl http://103.214.174.58:3000/api/shortcut/token
 ```json
 {"configured":true,"hint":"eb44"}
 ```
+
+授权浏览器后，`/api/shortcut/token` 会返回完整快捷指令 token，用于前端自动生成配置包。
 
 ## PM2 管理
 

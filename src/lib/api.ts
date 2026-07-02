@@ -65,5 +65,5 @@ export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   if (!url) {
     throw new Error('API base URL not configured for native runtime');
   }
-  return fetch(url, withAppAuthorization(init));
+  return fetch(url, withAppAuthorization({ credentials: 'same-origin', ...init }));
 }

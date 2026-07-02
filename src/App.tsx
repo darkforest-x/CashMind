@@ -1,9 +1,10 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { Home as HomeIcon, Lock, PieChart, PlusCircle, Settings as SettingsIcon } from 'lucide-react';
 import type { Transaction } from './types';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCashMindData } from './hooks/useCashMindData';
+import { useSetupAuthorization } from './hooks/useSetupAuthorization';
 
 const Home = lazy(() => import('./components/Home'));
 const Add = lazy(() => import('./components/Add'));
@@ -28,6 +29,13 @@ export default function App() {
     logoutUser,
   } = useCashMindData();
   const canUseApp = isApiBackend || Boolean(user);
+
+  const handleSetupAuthorized = useCallback(() => {
+    setEditingTransaction(null);
+    setActiveTab('settings');
+  }, []);
+
+  useSetupAuthorization(handleSetupAuthorized);
 
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('gqh_dark_mode');

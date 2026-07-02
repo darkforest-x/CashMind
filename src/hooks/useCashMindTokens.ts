@@ -1,8 +1,19 @@
-import { useEffect, useState } from 'react';
-import { APP_ACCESS_TOKEN_STORAGE_KEY, APP_ACCESS_TOKEN_UPDATED_EVENT, getApiUrl } from '../lib/api';
-import { useToast } from '../components/Toast';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { APP_ACCESS_TOKEN_STORAGE_KEY, APP_ACCESS_TOKEN_UPDATED_EVENT, apiFetch } from '../lib/api';
 
 type TokenStatus = 'checking' | 'configured' | 'missing' | 'unavailable';
+type SessionStatus = 'checking' | 'authorized' | 'locked' | 'unavailable';
+
+type TokenStatusCopy = {
+  readonly configuredText: string;
+  readonly missingText: string;
+};
+
+type ParsedTokenStatus = {
+  readonly configured: boolean;
+  readonly hint: string;
+  readonly token: string;
+};
 
 const SHORTCUT_TOKEN_STORAGE_KEY = 'cashmind_shortcut_token';
 
@@ -10,122 +21,166 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getTokenStatusText(status: TokenStatus, hint: string, envName: string): string {
-  if (status === 'checking') return '正在检查服务端 Token 状态...';
-  if (status === 'configured') return hint ? `服务端已配置，尾号 ${hint}` : '服务端已配置';
-  if (status === 'missing') return `服务端还没有配置 ${envName}`;
-  return '当前环境无法读取服务端状态，请确认 API 地址';
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function readString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseTokenStatus(value: unknown): ParsedTokenStatus | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return {
+    configured: value.configured === true,
+    hint: readString(value, 'hint'),
+    token: readString(value, 'token'),
+  };
+}
+
+function getStoredValue(key: string): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return localStorage.getItem(key)?.trim() || '';
+}
+
+function setStoredValue(key: string, value: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  localStorage.setItem(key, value);
+}
+
+function notifyAppAccessChanged(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new Event(APP_ACCESS_TOKEN_UPDATED_EVENT));
+}
+
+function buildTokenStatusText(status: TokenStatus, hint: string, copy: TokenStatusCopy): string {
+  if (status === 'checking') {
+    return '正在检查服务端配置';
+  }
+  if (status === 'unavailable') {
+    return '暂时无法连接服务端';
+  }
+  if (status === 'missing') {
+    return copy.missingText;
+  }
+  return hint ? `${copy.configuredText}，尾号 ${hint}` : copy.configuredText;
+}
+
+function buildSessionStatusText(status: SessionStatus): string {
+  if (status === 'checking') {
+    return '正在检查浏览器授权';
+  }
+  if (status === 'authorized') {
+    return '已授权，可读取和编辑账单';
+  }
+  if (status === 'unavailable') {
+    return '暂时无法连接服务端';
+  }
+  return '未授权，新设备打开服务端设置链接即可完成';
 }
 
 export function useCashMindTokens() {
-  const { showToast } = useToast();
-  const [appAccessToken, setAppAccessToken] = useState(() => localStorage.getItem(APP_ACCESS_TOKEN_STORAGE_KEY) || '');
   const [appTokenStatus, setAppTokenStatus] = useState<TokenStatus>('checking');
   const [appTokenHint, setAppTokenHint] = useState('');
-  const [shortcutToken, setShortcutToken] = useState(() => localStorage.getItem(SHORTCUT_TOKEN_STORAGE_KEY) || '');
   const [shortcutTokenStatus, setShortcutTokenStatus] = useState<TokenStatus>('checking');
   const [shortcutTokenHint, setShortcutTokenHint] = useState('');
+  const [shortcutToken, setShortcutToken] = useState(() => getStoredValue(SHORTCUT_TOKEN_STORAGE_KEY));
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('checking');
 
-  useEffect(() => {
-    const tokenUrl = getApiUrl('/api/app/token');
-    if (!tokenUrl) {
+  const loadAppSession = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/app/session');
+      const payload = await readJson(response);
+      const authorized = response.ok && isRecord(payload) && payload.authorized === true;
+      setSessionStatus(authorized ? 'authorized' : 'locked');
+    } catch {
+      setSessionStatus('unavailable');
+    }
+  }, []);
+
+  const loadAppTokenStatus = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/app/token');
+      const parsed = parseTokenStatus(await readJson(response));
+      if (!response.ok || !parsed) {
+        setAppTokenStatus('missing');
+        return;
+      }
+
+      setAppTokenHint(parsed.hint);
+      setAppTokenStatus(parsed.configured ? 'configured' : 'missing');
+      if (parsed.token) {
+        setStoredValue(APP_ACCESS_TOKEN_STORAGE_KEY, parsed.token);
+        notifyAppAccessChanged();
+      }
+    } catch {
       setAppTokenStatus('unavailable');
-      return;
     }
-
-    let didCancel = false;
-    fetch(tokenUrl)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: unknown) => {
-        if (didCancel || !isRecord(data)) return;
-        setAppTokenStatus(data.configured === true ? 'configured' : 'missing');
-        setAppTokenHint(typeof data.hint === 'string' ? data.hint : '');
-        const exposedToken = typeof data.token === 'string' ? data.token : '';
-        if (exposedToken && !localStorage.getItem(APP_ACCESS_TOKEN_STORAGE_KEY)) {
-          localStorage.setItem(APP_ACCESS_TOKEN_STORAGE_KEY, exposedToken);
-          setAppAccessToken(exposedToken);
-          window.dispatchEvent(new Event(APP_ACCESS_TOKEN_UPDATED_EVENT));
-        }
-      })
-      .catch((error: unknown) => {
-        if (didCancel) return;
-        console.error('Failed to read app token status:', error instanceof Error ? error.message : String(error));
-        setAppTokenStatus('unavailable');
-      });
-
-    return () => {
-      didCancel = true;
-    };
   }, []);
+
+  const loadShortcutTokenStatus = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/shortcut/token');
+      const parsed = parseTokenStatus(await readJson(response));
+      if (!response.ok || !parsed) {
+        setShortcutTokenStatus('missing');
+        return;
+      }
+
+      setShortcutTokenHint(parsed.hint);
+      setShortcutTokenStatus(parsed.configured ? 'configured' : 'missing');
+      if (parsed.token) {
+        setShortcutToken(parsed.token);
+        setStoredValue(SHORTCUT_TOKEN_STORAGE_KEY, parsed.token);
+      }
+    } catch {
+      setShortcutTokenStatus('unavailable');
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      loadAppSession(),
+      loadAppTokenStatus(),
+      loadShortcutTokenStatus(),
+    ]);
+  }, [loadAppSession, loadAppTokenStatus, loadShortcutTokenStatus]);
 
   useEffect(() => {
-    const tokenUrl = getApiUrl('/api/shortcut/token');
-    if (!tokenUrl) {
-      setShortcutTokenStatus('unavailable');
-      return;
-    }
+    void refresh();
+  }, [refresh]);
 
-    let didCancel = false;
-    fetch(tokenUrl)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: unknown) => {
-        if (didCancel || !isRecord(data)) return;
-        setShortcutTokenStatus(data.configured === true ? 'configured' : 'missing');
-        setShortcutTokenHint(typeof data.hint === 'string' ? data.hint : '');
-        const exposedToken = typeof data.token === 'string' ? data.token : '';
-        if (exposedToken && !localStorage.getItem(SHORTCUT_TOKEN_STORAGE_KEY)) {
-          localStorage.setItem(SHORTCUT_TOKEN_STORAGE_KEY, exposedToken);
-          setShortcutToken(exposedToken);
-        }
-      })
-      .catch((error: unknown) => {
-        if (didCancel) return;
-        console.error('Failed to read shortcut token status:', error instanceof Error ? error.message : String(error));
-        setShortcutTokenStatus('unavailable');
-      });
-
-    return () => {
-      didCancel = true;
-    };
-  }, []);
-
-  const saveAppAccessToken = () => {
-    const normalizedToken = appAccessToken.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴 VPS 上的 APP_ACCESS_TOKEN', 'error');
-      return;
-    }
-    localStorage.setItem(APP_ACCESS_TOKEN_STORAGE_KEY, normalizedToken);
-    setAppAccessToken(normalizedToken);
-    window.dispatchEvent(new Event(APP_ACCESS_TOKEN_UPDATED_EVENT));
-    showToast('App 访问 Token 已保存在本机', 'success');
-  };
-
-  const saveShortcutToken = () => {
-    const normalizedToken = shortcutToken.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴 VPS 上的 SHORTCUT_TOKEN', 'error');
-      return;
-    }
-    localStorage.setItem(SHORTCUT_TOKEN_STORAGE_KEY, normalizedToken);
-    setShortcutToken(normalizedToken);
-    showToast('快捷指令 Token 已保存在本机', 'success');
-  };
+  const shortcutTokenStatusText = useMemo(() => {
+    const configuredText = shortcutToken ? '已自动封装到快捷指令模板' : '服务端已自动生成，授权后自动封装';
+    return buildTokenStatusText(shortcutTokenStatus, shortcutTokenHint, {
+      configuredText,
+      missingText: '服务端启动时会自动生成快捷指令密钥',
+    });
+  }, [shortcutToken, shortcutTokenHint, shortcutTokenStatus]);
 
   return {
-    appAccessToken,
-    setAppAccessToken,
-    appTokenStatusText: `${getTokenStatusText(appTokenStatus, appTokenHint, 'APP_ACCESS_TOKEN')}。用于保护账单读取、编辑和 AI 分类接口。`,
-    saveAppAccessToken,
+    appSessionStatusText: buildSessionStatusText(sessionStatus),
+    appTokenStatusText: buildTokenStatusText(appTokenStatus, appTokenHint, {
+      configuredText: '服务端已自动生成',
+      missingText: '服务端启动时会自动生成访问密钥',
+    }),
     shortcutToken,
-    setShortcutToken,
-    shortcutTokenStatusText: `${getTokenStatusText(shortcutTokenStatus, shortcutTokenHint, 'SHORTCUT_TOKEN')}。用于 iPhone 快捷指令写入账单。`,
-    saveShortcutToken,
+    shortcutTokenStatusText,
+    isAppSessionAuthorized: sessionStatus === 'authorized',
+    isShortcutTokenReady: Boolean(shortcutToken.trim()),
   };
 }

@@ -7,7 +7,6 @@ import { copyToClipboard } from '../lib/clipboard';
 import { buildShortcutTemplates } from '../lib/shortcutTemplates';
 import { useCashMindTokens } from '../hooks/useCashMindTokens';
 import { useToast } from './Toast';
-import TokenInput from './TokenInput';
 
 type ShortcutAutomationCardProps = {
   readonly onOpenGuide: () => void;
@@ -32,17 +31,15 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
   const [isTesting, setIsTesting] = useState(false);
   const [manualCopy, setManualCopy] = useState<ManualCopyState | null>(null);
   const {
-    appAccessToken,
-    setAppAccessToken,
+    appSessionStatusText,
     appTokenStatusText,
-    saveAppAccessToken,
     shortcutToken,
-    setShortcutToken,
     shortcutTokenStatusText,
-    saveShortcutToken,
+    isShortcutTokenReady,
   } = useCashMindTokens();
   const captureUrl = getApiUrl('/api/shortcut/capture');
   const templates = useMemo(() => buildShortcutTemplates({ captureUrl, shortcutToken }), [captureUrl, shortcutToken]);
+  const displayCaptureUrl = isShortcutTokenReady ? templates.captureUrl : '完成浏览器授权后自动生成';
 
   const copyTemplate = async (title: string, value: string, message: string) => {
     const copied = await copyToClipboard(value);
@@ -54,20 +51,25 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
     showToast('系统限制自动复制，已打开手动复制面板', 'info');
   };
 
-  const copyShortcutToken = async () => {
-    const normalizedToken = shortcutToken.trim();
-    if (!normalizedToken) {
-      showToast('请先粘贴并保存快捷指令 Token', 'error');
+  const ensureShortcutReady = () => {
+    if (isShortcutTokenReady) {
+      return true;
+    }
+    showToast('快捷指令配置未就绪，请先用设置链接完成浏览器授权', 'error');
+    return false;
+  };
+
+  const copyReadyTemplate = async (title: string, value: string, message: string) => {
+    if (!ensureShortcutReady()) {
       return;
     }
-
-    await copyTemplate('快捷指令 Token', normalizedToken, '快捷指令 Token 已复制到剪贴板');
+    await copyTemplate(title, value, message);
   };
 
   const testShortcutCapture = async () => {
     const token = shortcutToken.trim();
     if (!captureUrl || !token) {
-      showToast('请先保存快捷指令 Token', 'error');
+      showToast('快捷指令配置未就绪，请先用设置链接完成浏览器授权', 'error');
       return;
     }
 
@@ -93,7 +95,7 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
       showToast('自检成功，已写入一条测试流水', 'success');
     } catch (error) {
       console.error('Shortcut self-test failed:', error instanceof Error ? error.message : String(error));
-      showToast('自检失败，请检查 Token 或 VPS 状态', 'error');
+      showToast('自检失败，请检查快捷指令配置或 VPS 状态', 'error');
     } finally {
       setIsTesting(false);
     }
@@ -153,42 +155,54 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
           </div>
           <div>
             <h2 className="text-base font-semibold">自动化引擎</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">复制配置包，快捷指令里不用再手拼 Header</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">服务端自动生成密钥，快捷指令里不用再手拼 Header</p>
           </div>
         </div>
 
         <div className="space-y-4">
-          <TokenInput
-            label="App 访问 Token"
-            value={appAccessToken}
-            onChange={setAppAccessToken}
-            onSave={saveAppAccessToken}
-            placeholder="粘贴 VPS .env 里的 APP_ACCESS_TOKEN"
-            statusText={appTokenStatusText}
-          />
-
-          <TokenInput
-            label="快捷指令 Token"
-            value={shortcutToken}
-            onChange={setShortcutToken}
-            onSave={saveShortcutToken}
-            onCopy={copyShortcutToken}
-            placeholder="粘贴 VPS .env 里的 SHORTCUT_TOKEN"
-            statusText={shortcutTokenStatusText}
-          />
+          <div className="grid gap-2">
+            <div className="rounded-2xl border border-white/60 bg-white/55 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-start gap-3">
+                <Icons.ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">浏览器访问</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{appSessionStatusText}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/60 bg-white/55 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-start gap-3">
+                <Icons.KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">App 访问密钥</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{appTokenStatusText}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/60 bg-white/55 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-start gap-3">
+                <Icons.Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">快捷指令密钥</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{shortcutTokenStatusText}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/80 dark:bg-indigo-950/20 p-4 space-y-3">
             <div>
               <p className="text-sm font-semibold text-gray-900 dark:text-white">万能入口 URL</p>
               <code className="mt-2 block rounded-xl bg-white/70 dark:bg-black/30 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 break-all select-all">
-                {templates.captureUrl}
+                {displayCaptureUrl}
               </code>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => copyTemplate('万能入口 URL', templates.captureUrl, '入口 URL 已复制')}
-                className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-white/80 dark:bg-white/10 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 border border-white/60 dark:border-white/10"
+                onClick={() => copyReadyTemplate('万能入口 URL', templates.captureUrl, '入口 URL 已复制')}
+                disabled={!isShortcutTokenReady}
+                className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-white/80 dark:bg-white/10 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 border border-white/60 dark:border-white/10 disabled:opacity-55"
               >
                 <Icons.Link className="w-4 h-4 shrink-0" />
                 <span className="whitespace-nowrap">复制 URL</span>
@@ -196,7 +210,7 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
               <button
                 type="button"
                 onClick={testShortcutCapture}
-                disabled={isTesting}
+                disabled={isTesting || !isShortcutTokenReady}
                 className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
               >
                 {isTesting ? <Icons.Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <Icons.CheckCircle2 className="w-4 h-4 shrink-0" />}
@@ -208,8 +222,9 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
           <div className="grid grid-cols-1 gap-2">
             <button
               type="button"
-              onClick={() => copyTemplate('完整配置包', templates.packageText, '完整配置包已复制')}
-              className="w-full flex items-center justify-between p-3 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-2xl font-medium transition-colors hover:bg-indigo-500/20 dark:hover:bg-indigo-500/30"
+              onClick={() => copyReadyTemplate('完整配置包', templates.packageText, '完整配置包已复制')}
+              disabled={!isShortcutTokenReady}
+              className="w-full flex items-center justify-between p-3 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-2xl font-medium transition-colors hover:bg-indigo-500/20 dark:hover:bg-indigo-500/30 disabled:opacity-55"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <Icons.Package className="w-4 h-4 shrink-0" />
@@ -220,16 +235,18 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => copyTemplate('Wallet 模板', templates.walletBody, 'Wallet 模板已复制')}
-                className="flex min-w-0 items-center justify-center gap-2 p-3 bg-white/50 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-2xl text-sm font-medium"
+                onClick={() => copyReadyTemplate('Wallet 模板', templates.walletBody, 'Wallet 模板已复制')}
+                disabled={!isShortcutTokenReady}
+                className="flex min-w-0 items-center justify-center gap-2 p-3 bg-white/50 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-2xl text-sm font-medium disabled:opacity-55"
               >
                 <Icons.WalletCards className="w-4 h-4 shrink-0" />
                 <span className="whitespace-nowrap">Wallet 模板</span>
               </button>
               <button
                 type="button"
-                onClick={() => copyTemplate('短信模板', templates.textBody, '短信模板已复制')}
-                className="flex min-w-0 items-center justify-center gap-2 p-3 bg-white/50 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-2xl text-sm font-medium"
+                onClick={() => copyReadyTemplate('短信模板', templates.textBody, '短信模板已复制')}
+                disabled={!isShortcutTokenReady}
+                className="flex min-w-0 items-center justify-center gap-2 p-3 bg-white/50 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-2xl text-sm font-medium disabled:opacity-55"
               >
                 <Icons.MessageSquareText className="w-4 h-4 shrink-0" />
                 <span className="whitespace-nowrap">短信模板</span>

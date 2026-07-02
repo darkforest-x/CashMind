@@ -91,7 +91,7 @@ NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
 pm2 save
 ```
 
-然后在浏览器/PWA 设置页重新粘贴新的 `APP_ACCESS_TOKEN`。
+轮换后已授权浏览器的 Cookie 会失效。重新生成设置链接，在手机上打开一次即可。
 
 ### 轮换快捷指令 Token
 
@@ -104,7 +104,18 @@ NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
 pm2 save
 ```
 
-然后更新 iPhone 快捷指令里的 `Authorization` 请求头。
+然后在已授权浏览器的设置页重新复制“完整配置包”，更新 iPhone 快捷指令里的万能入口 URL。
+
+### 轮换设置 Token
+
+```bash
+ssh root@103.214.174.58
+cd /var/www/cashmind
+NEW_TOKEN="cm_setup_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+sed -i "s/^SETUP_TOKEN=.*/SETUP_TOKEN=$NEW_TOKEN/" .env
+NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
+pm2 save
+```
 
 ## 常见故障
 
@@ -112,7 +123,7 @@ pm2 save
 
 检查：
 
-1. `APP_ACCESS_TOKEN` 是否保存正确。
+1. 当前浏览器是否已经用设置链接授权。
 2. `curl http://103.214.174.58:3000/api/health` 是否正常。
 3. `pm2 status cashmind` 是否 online。
 4. 手机是否能访问 VPS。
@@ -122,7 +133,7 @@ pm2 save
 检查：
 
 1. 快捷指令 URL 是否正确。
-2. `Authorization` 是否使用 `SHORTCUT_TOKEN`。
+2. 万能入口 URL 是否来自设置页最新配置包。
 3. JSON body 是否包含有效 `amount`。
 4. 是否被幂等去重判定为重复交易。
 5. `pm2 logs cashmind` 是否有解析错误。

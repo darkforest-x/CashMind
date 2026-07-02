@@ -12,7 +12,7 @@ CashMind feels like a private mobile finance console: calm, glassy, and personal
 |------|-------|-------|------|-------|
 | Surface/page | `--surface-page` | `#F8FAFC` | `#09090B` | App background |
 | Surface/glass | `--surface-glass` | `rgba(255,255,255,0.40)` | `rgba(0,0,0,0.40)` | Primary cards |
-| Surface/field | `--surface-field` | `rgba(255,255,255,0.50)` | `rgba(0,0,0,0.50)` | Token inputs |
+| Surface/field | `--surface-field` | `rgba(255,255,255,0.50)` | `rgba(0,0,0,0.50)` | Status rows and compact fields |
 | Surface/elevated | `--surface-elevated` | `#FFFFFF` | `#18181B` | Modals |
 | Text/primary | `--text-primary` | `#111827` | `#FFFFFF` | Headings and body |
 | Text/secondary | `--text-secondary` | `#4B5563` | `#D1D5DB` | Labels and control text |
@@ -92,21 +92,21 @@ All spacing derives from 4px.
 - **Accessibility**: contrast relies on text opacity and background tint; never place pale text on pale tint.
 - **Motion**: enters with 20px vertical offset and opacity fade.
 
-### Token Input
+### Automation Status Row
 
-- **Structure**: label, password input, save button, optional copy button, status text.
-- **Variants**: app token, shortcut token.
-- **Spacing**: 8px label gap, 4px inner button shell, 12px input padding.
-- **States**: default, focus, hover, disabled not currently used; action buttons keep a fixed minimum width on mobile.
-- **Accessibility**: label remains visible; button text is explicit.
+- **Structure**: icon, label, status text.
+- **Variants**: browser authorization, app access secret, shortcut secret.
+- **Spacing**: 12px row padding, 12px icon gap.
+- **States**: checking, authorized/configured, locked, unavailable.
+- **Accessibility**: status text is explicit and never relies on color alone.
 - **Motion**: no layout animation.
 
 ### Shortcut Automation Card
 
-- **Structure**: header, token inputs, universal capture URL, self-test, copy actions, guide entry, manual copy fallback panel.
+- **Structure**: header, automation status rows, universal capture URL, self-test, copy actions, guide entry, manual copy fallback panel.
 - **Variants**: normal, testing state, and manual copy fallback when the system blocks automatic clipboard access.
 - **Spacing**: 24px card padding, 16px stacked groups, 8px button grid.
-- **States**: default, hover, disabled while testing, success/info/error toast.
+- **States**: default, hover, disabled until shortcut token is available, disabled while testing, success/info/error toast.
 - **Accessibility**: every icon button has text; loading state keeps label visible.
 - **Motion**: card uses standard mount motion; loader spins only during request.
 

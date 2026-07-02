@@ -313,7 +313,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                   <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
                     <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/80 dark:bg-indigo-950/20 p-4">
                       <p className="font-semibold text-gray-900 dark:text-white">现在只需要一个入口</p>
-                      <p className="mt-2">在上方保存快捷指令 Token，然后点 <strong>复制完整配置包</strong>。配置包里已经带好 URL、请求体模板和 token，不需要再手动拼 Header。</p>
+                      <p className="mt-2">服务端会自动生成密钥。新设备用设置链接授权一次后，点 <strong>复制完整配置包</strong>，配置包里已经带好 URL、请求体模板和 token，不需要再手动拼 Header。</p>
                     </div>
 
                     <div className="rounded-2xl bg-gray-50 dark:bg-zinc-800/50 p-4">
@@ -349,7 +349,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">1. 信息收集与存储</h4>
                     <p>本应用作为本地/个人服务器部署的工具，所有账单数据均存储在您的服务器或本地浏览器中。我们不会将您的财务数据上传至任何第三方商业服务器。</p>
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">2. API Token 使用</h4>
-                    <p>App 访问 Token 用于保护账单读取和编辑接口，快捷指令 Token 仅用于验证自动化写入请求。正式部署后应用不会通过公网接口展示完整 Token，如发生泄露，请在 VPS 的 .env 中更换对应 Token。</p>
+                    <p>App 访问密钥用于保护账单读取和编辑接口，快捷指令密钥仅用于验证自动化写入请求。密钥由服务端自动生成，生产环境不会向未授权浏览器展示完整密钥；如发生泄露，请在 VPS 的 .env 中更换对应密钥。</p>
                     <h4 className="font-medium text-gray-900 dark:text-white mt-4">3. 免责声明</h4>
                     <p>本应用按“原样”提供，不对数据的绝对安全性做任何明示或暗示的保证。建议您定期使用“导出 CSV”功能备份数据。</p>
                   </div>

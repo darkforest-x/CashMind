@@ -7,6 +7,17 @@ import { getErrorMessage, parseBudgetList, parseTransaction, parseTransactionLis
 import type { Budget, Transaction } from '../types';
 import { useToast } from '../components/Toast';
 
+const SETUP_QUERY_KEYS = ['setup', 'setupToken', 'cashmind_setup'] as const;
+
+function hasSetupTokenInUrl(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return SETUP_QUERY_KEYS.some((key) => Boolean(params.get(key)?.trim()));
+}
+
 export function useCashMindData() {
   const [isApiBackend] = useState(() => hasApiBackend());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -15,7 +26,7 @@ export function useCashMindData() {
   const [user, setUser] = useState<User | null>(null);
   const { showToast } = useToast();
 
-  const loadApiData = useCallback(async (showLoading = true) => {
+  const loadApiData = useCallback(async (showLoading = true, showErrorToast = true) => {
     if (showLoading) {
       setIsLoading(true);
     }
@@ -33,7 +44,7 @@ export function useCashMindData() {
       setBudgets(parseBudgetList(budgetsJson));
     } catch (error) {
       console.error('Failed to load self-hosted data:', getErrorMessage(error));
-      if (showLoading) {
+      if (showLoading && showErrorToast) {
         showToast('连接个人服务失败，请检查 API 地址', 'error');
       }
     } finally {
@@ -48,7 +59,11 @@ export function useCashMindData() {
       return undefined;
     }
 
-    void loadApiData();
+    if (hasSetupTokenInUrl()) {
+      setIsLoading(false);
+    } else {
+      void loadApiData();
+    }
     const intervalId = window.setInterval(() => {
       void loadApiData(false);
     }, 30_000);
