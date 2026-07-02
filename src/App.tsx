@@ -22,6 +22,7 @@ export default function App() {
     isLoading,
     user,
     isApiBackend,
+    needsAppAuthorization,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -36,6 +37,13 @@ export default function App() {
   }, []);
 
   useSetupAuthorization(handleSetupAuthorized);
+
+  useEffect(() => {
+    if (isApiBackend && needsAppAuthorization) {
+      setEditingTransaction(null);
+      setActiveTab('settings');
+    }
+  }, [isApiBackend, needsAppAuthorization]);
 
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('gqh_dark_mode');
