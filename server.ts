@@ -6,7 +6,7 @@ import { createHash, randomUUID } from "crypto";
 import Database from "better-sqlite3";
 import { formatISO, subDays } from "date-fns";
 import { GoogleGenAI, Type } from "@google/genai";
-import { buildTokenStatus, isAppSessionAuthorized, isBearerAuthorized, setAppSessionCookie } from "./server/auth";
+import { buildTokenStatus, isBearerAuthorized } from "./server/auth";
 import { loadRuntimeEnv } from "./server/runtimeEnv";
 
 loadRuntimeEnv();
@@ -584,30 +584,8 @@ function isAuthorizedShortcutRequest(req: express.Request): boolean {
   return isBearerAuthorized(req, process.env.SHORTCUT_TOKEN);
 }
 
-function isAuthorizedAppRequest(req: express.Request): boolean {
-  return isBearerAuthorized(req, process.env.APP_ACCESS_TOKEN) || isAppSessionAuthorized(req, process.env.APP_ACCESS_TOKEN);
-}
-
-function isAuthorizedSetupRequest(body: Record<string, unknown>): boolean {
-  const expectedToken = process.env.SETUP_TOKEN;
-  const setupToken = readString(body, ["setupToken", "setup", "token"]);
-  return Boolean(expectedToken && setupToken === expectedToken);
-}
-
-function requireAppAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (!isAuthorizedAppRequest(req)) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
-
 function shouldExposeShortcutToken(): boolean {
-  return process.env.EXPOSE_SHORTCUT_TOKEN === "1" || process.env.NODE_ENV !== "production";
-}
-
-function shouldExposeAppAccessToken(): boolean {
-  return process.env.EXPOSE_APP_ACCESS_TOKEN === "1" || process.env.NODE_ENV !== "production";
+  return process.env.EXPOSE_SHORTCUT_TOKEN !== "0";
 }
 
 async function startServer() {
@@ -619,7 +597,6 @@ async function startServer() {
   app.use(express.text({ type: "text/plain", limit: "2mb" }));
   app.use(express.urlencoded({ extended: false, limit: "2mb" }));
   const appApi = express.Router();
-  appApi.use(requireAppAccess);
 
   // API Routes
   app.get("/api/health", (req, res) => {
@@ -627,32 +604,15 @@ async function startServer() {
   });
 
   app.get("/api/app/session", (req, res) => {
-    res.json({ authorized: isAuthorizedAppRequest(req) });
+    res.json({ authorized: true, authDisabled: true });
   });
 
   app.post("/api/app/session", (req, res) => {
-    const appAccessToken = process.env.APP_ACCESS_TOKEN;
-    if (!appAccessToken || !isAuthorizedSetupRequest(buildRequestBody(req))) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    const isSecureRequest = req.secure || req.get("x-forwarded-proto") === "https";
-    setAppSessionCookie(res, appAccessToken, isSecureRequest);
-    res.json({ success: true });
+    res.json({ success: true, authDisabled: true });
   });
 
   app.get("/owner/setup/:token", (req, res) => {
-    const appAccessToken = process.env.APP_ACCESS_TOKEN;
-    const ownerSetupToken = process.env.OWNER_SETUP_TOKEN;
-    if (!appAccessToken || !ownerSetupToken || req.params.token !== ownerSetupToken) {
-      res.status(404).send("Not found");
-      return;
-    }
-
-    const isSecureRequest = req.secure || req.get("x-forwarded-proto") === "https";
-    setAppSessionCookie(res, appAccessToken, isSecureRequest);
-    res.redirect("/?authorized=1");
+    res.redirect("/");
   });
 
   appApi.get("/transactions", (req, res) => {
@@ -945,11 +905,11 @@ async function startServer() {
   });
 
   app.get("/api/shortcut/token", (req, res) => {
-    res.json(buildTokenStatus(process.env.SHORTCUT_TOKEN, isAuthorizedAppRequest(req) || shouldExposeShortcutToken()));
+    res.json(buildTokenStatus(process.env.SHORTCUT_TOKEN, shouldExposeShortcutToken()));
   });
 
   app.get("/api/app/token", (req, res) => {
-    res.json(buildTokenStatus(process.env.APP_ACCESS_TOKEN, shouldExposeAppAccessToken()));
+    res.json({ configured: false, disabled: true });
   });
 
   app.post("/api/shortcut/add", (req, res) => {

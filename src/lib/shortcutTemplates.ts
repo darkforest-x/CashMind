@@ -34,7 +34,7 @@ export function buildShortcutTemplates(input: ShortcutTemplateInput): ShortcutTe
   const packageText = [
     'AI 管钱花快捷指令配置包',
     '',
-    '这套配置只负责写入流水。浏览器读取和编辑账单需要先授权一次。',
+    '这套配置只负责写入流水。网页端已去掉授权码，打开 VPS 地址即可读写账单。',
     '',
     '万能入口 URL:',
     captureUrl,

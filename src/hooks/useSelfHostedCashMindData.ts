@@ -1,49 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { APP_ACCESS_TOKEN_UPDATED_EVENT, apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { getErrorMessage, parseBudgetList, parseTransaction, parseTransactionList, readJson, sortTransactions } from '../lib/apiParsers';
 import type { Budget, Transaction } from '../types';
 import { useToast } from '../components/Toast';
-
-const SETUP_QUERY_KEYS = ['setup', 'setupToken', 'cashmind_setup'] as const;
-
-function hasSetupTokenInUrl(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  return SETUP_QUERY_KEYS.some((key) => Boolean(params.get(key)?.trim()));
-}
-
-function isUnauthorizedError(error: unknown): boolean {
-  return error instanceof Error && error.message === 'HTTP 401';
-}
-
-function isAuthorizedSession(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && 'authorized' in value && value.authorized === true;
-}
-
-function getUnauthorizedMessage(action: 'add' | 'update' | 'delete' | 'budget'): string {
-  if (action === 'budget') {
-    return '请先连接个人服务，再保存预算';
-  }
-  if (action === 'delete') {
-    return '请先连接个人服务，再删除记录';
-  }
-  return '请先连接个人服务，再保存账单';
-}
 
 export function useSelfHostedCashMindData(isEnabled: boolean) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [needsAppAuthorization, setNeedsAppAuthorization] = useState(false);
   const { showToast } = useToast();
-
-  const loadAppSession = useCallback(async () => {
-    const response = await apiFetch('/api/app/session');
-    return isAuthorizedSession(await readJson(response));
-  }, []);
 
   const loadApiData = useCallback(async (showLoading = true, showErrorToast = true) => {
     if (showLoading) {
@@ -61,15 +26,14 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
 
       setTransactions(parseTransactionList(transactionsJson));
       setBudgets(parseBudgetList(budgetsJson));
-      setNeedsAppAuthorization(false);
     } catch (error) {
-      if (isUnauthorizedError(error)) {
-        setNeedsAppAuthorization(true);
+      if (error instanceof Error && error.message === 'HTTP 401') {
+        showToast('个人服务拒绝访问，请确认 VPS 已部署最新版本', 'error');
         return;
       }
       console.error('Failed to load self-hosted data:', getErrorMessage(error));
       if (showLoading && showErrorToast) {
-        showToast('连接个人服务失败，请检查 API 地址', 'error');
+        showToast('个人 VPS 连接失败，请检查 API 地址', 'error');
       }
     } finally {
       if (showLoading) {
@@ -84,39 +48,15 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
     }
 
     const loadInitialApiData = async () => {
-      if (hasSetupTokenInUrl()) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const authorized = await loadAppSession();
-        if (!authorized) {
-          setNeedsAppAuthorization(true);
-          setIsLoading(false);
-          return;
-        }
-        await loadApiData();
-      } catch (error) {
-        console.error('Failed to check self-hosted session:', getErrorMessage(error));
-        showToast('连接个人服务失败，请检查 API 地址', 'error');
-        setIsLoading(false);
-      }
+      await loadApiData();
     };
 
     void loadInitialApiData();
-    const refreshAfterTokenUpdate = () => {
-      void loadApiData();
-    };
-
-    window.addEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refreshAfterTokenUpdate);
-    return () => {
-      window.removeEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refreshAfterTokenUpdate);
-    };
-  }, [isEnabled, loadApiData, loadAppSession, showToast]);
+    return undefined;
+  }, [isEnabled, loadApiData]);
 
   useEffect(() => {
-    if (!isEnabled || isLoading || needsAppAuthorization) {
+    if (!isEnabled || isLoading) {
       return undefined;
     }
 
@@ -137,7 +77,7 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
       window.removeEventListener('focus', refreshWhenVisible);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [isEnabled, isLoading, loadApiData, needsAppAuthorization]);
+  }, [isEnabled, isLoading, loadApiData]);
 
   const addTransaction = useCallback(async (transaction: Transaction) => {
     try {
@@ -154,9 +94,8 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
       showToast('记录添加成功', 'success');
       return true;
     } catch (error) {
-      if (isUnauthorizedError(error)) {
-        setNeedsAppAuthorization(true);
-        showToast(getUnauthorizedMessage('add'), 'error');
+      if (error instanceof Error && error.message === 'HTTP 401') {
+        showToast('个人服务拒绝写入，请确认 VPS 已部署最新版本', 'error');
         return false;
       }
       console.error('Failed to add transaction:', getErrorMessage(error));
@@ -178,9 +117,8 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
       showToast('记录更新成功', 'success');
       return true;
     } catch (error) {
-      if (isUnauthorizedError(error)) {
-        setNeedsAppAuthorization(true);
-        showToast(getUnauthorizedMessage('update'), 'error');
+      if (error instanceof Error && error.message === 'HTTP 401') {
+        showToast('个人服务拒绝更新，请确认 VPS 已部署最新版本', 'error');
         return false;
       }
       console.error('Failed to update transaction:', getErrorMessage(error));
@@ -195,9 +133,8 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
       setTransactions((current) => current.filter((item) => item.id !== id));
       showToast('记录已删除', 'success');
     } catch (error) {
-      if (isUnauthorizedError(error)) {
-        setNeedsAppAuthorization(true);
-        showToast(getUnauthorizedMessage('delete'), 'error');
+      if (error instanceof Error && error.message === 'HTTP 401') {
+        showToast('个人服务拒绝删除，请确认 VPS 已部署最新版本', 'error');
         return;
       }
       console.error('Failed to delete transaction:', getErrorMessage(error));
@@ -215,9 +152,8 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
       setBudgets(newBudgets);
       return true;
     } catch (error) {
-      if (isUnauthorizedError(error)) {
-        setNeedsAppAuthorization(true);
-        showToast(getUnauthorizedMessage('budget'), 'error');
+      if (error instanceof Error && error.message === 'HTTP 401') {
+        showToast('个人服务拒绝保存预算，请确认 VPS 已部署最新版本', 'error');
         return false;
       }
       console.error('Failed to update budgets:', getErrorMessage(error));
@@ -234,7 +170,7 @@ export function useSelfHostedCashMindData(isEnabled: boolean) {
     transactions,
     budgets,
     isLoading,
-    needsAppAuthorization,
+    needsAppAuthorization: false,
     addTransaction,
     updateTransaction,
     deleteTransaction,

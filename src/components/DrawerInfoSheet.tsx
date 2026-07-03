@@ -12,7 +12,6 @@ type DrawerInfoSheetProps = {
   readonly panel: DrawerInfoPanel | null;
   readonly transactions: readonly Transaction[];
   readonly isApiBackend: boolean;
-  readonly needsAppAuthorization: boolean;
   readonly onClose: () => void;
 };
 
@@ -36,12 +35,12 @@ function getPanelIcon(panel: DrawerInfoPanel) {
   return HelpCircle;
 }
 
-export default function DrawerInfoSheet({ panel, transactions, isApiBackend, needsAppAuthorization, onClose }: DrawerInfoSheetProps) {
+export default function DrawerInfoSheet({ panel, transactions, isApiBackend, onClose }: DrawerInfoSheetProps) {
   if (!panel || typeof document === 'undefined') return null;
 
   const Icon = getPanelIcon(panel);
   const recentTransactions = transactions.slice(0, 6);
-  const serviceStatus = isApiBackend ? (needsAppAuthorization ? '待授权' : '已连接') : 'Firebase 云端';
+  const serviceStatus = isApiBackend ? '已连接' : 'Firebase 云端';
 
   return createPortal(
     <AnimatePresence>
@@ -107,9 +106,9 @@ export default function DrawerInfoSheet({ panel, transactions, isApiBackend, nee
 
         {panel === 'help' && (
           <div className="mt-6 space-y-3 text-sm leading-relaxed text-[var(--cm-text-soft)]">
-            <p className="cm-action-row rounded-[22px] p-4">快捷指令只负责写入流水；浏览器授权后才能读取、编辑和设置预算。</p>
-            <p className="cm-action-row rounded-[22px] p-4">如果保存失败，先确认当前浏览器已完成个人服务授权。</p>
-            <p className="cm-action-row rounded-[22px] p-4">所有账单数据保存在你的个人服务中，前端不会把 token 显示在页面上。</p>
+            <p className="cm-action-row rounded-[22px] p-4">网页端已经去掉授权码，打开个人 VPS 地址即可读取、编辑和设置预算。</p>
+            <p className="cm-action-row rounded-[22px] p-4">快捷指令只负责写入流水；配置包会自动带上写入密钥。</p>
+            <p className="cm-action-row rounded-[22px] p-4">所有账单数据保存在你的个人服务中。</p>
           </div>
         )}
       </motion.div>

@@ -1,8 +1,5 @@
 import { Capacitor } from '@capacitor/core';
 
-export const APP_ACCESS_TOKEN_STORAGE_KEY = 'cashmind_app_access_token';
-export const APP_ACCESS_TOKEN_UPDATED_EVENT = 'cashmind-app-access-token-updated';
-
 function stripTrailingSlash(value: string): string {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 }
@@ -40,30 +37,10 @@ export function hasApiBackend(): boolean {
   return Boolean(getConfiguredApiBase());
 }
 
-function getAppAccessToken(): string {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-  return localStorage.getItem(APP_ACCESS_TOKEN_STORAGE_KEY)?.trim() || '';
-}
-
-function withAppAuthorization(init?: RequestInit): RequestInit {
-  const token = getAppAccessToken();
-  if (!token) {
-    return init || {};
-  }
-
-  const headers = new Headers(init?.headers);
-  if (!headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  return { ...init, headers };
-}
-
 export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const url = getApiUrl(path);
   if (!url) {
     throw new Error('API base URL not configured for native runtime');
   }
-  return fetch(url, withAppAuthorization({ credentials: 'same-origin', ...init }));
+  return fetch(url, { credentials: 'same-origin', ...init });
 }

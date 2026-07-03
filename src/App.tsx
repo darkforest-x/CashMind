@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, Suspense, lazy } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Lock } from 'lucide-react';
 import type { Transaction } from './types';
 import { useCashMindData } from './hooks/useCashMindData';
 import { useSetupAuthorization } from './hooks/useSetupAuthorization';
@@ -29,13 +28,12 @@ export default function App() {
     isLoading,
     user,
     isApiBackend,
-    needsAppAuthorization,
     addTransaction,
     updateTransaction,
     deleteTransaction,
     updateBudgets,
   } = useCashMindData();
-  const canUseApp = isApiBackend ? !needsAppAuthorization : Boolean(user);
+  const canUseApp = isApiBackend || Boolean(user);
 
   const goToTab = (tab: AppTab) => {
     setEditingTransaction(null);
@@ -85,25 +83,12 @@ export default function App() {
   };
 
   const handleAutomationRequest = () => {
-    if (!canUseApp) {
+    if (!isApiBackend && !user) {
       setShowLogin(true);
       return;
     }
     setActiveTab('settings');
   };
-
-  const renderLockedState = () => (
-    <div className="flex h-full flex-col items-center justify-center px-8 pb-24 text-center text-white">
-      <div className="cm-card grid h-20 w-20 place-items-center rounded-[28px]">
-        <Lock className="h-9 w-9 text-[var(--cm-purple)]" />
-      </div>
-      <h2 className="mt-6 text-2xl font-bold">需要连接个人服务</h2>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--cm-text-soft)]">授权后即可读取、编辑和自动同步你的账本。</p>
-      <button type="button" onClick={() => setShowLogin(true)} className="cm-primary mt-7 h-[52px] rounded-full px-8 text-sm font-bold">
-        立即连接
-      </button>
-    </div>
-  );
 
   const renderContent = () => {
     if (showLogin && !user) {
@@ -127,7 +112,6 @@ export default function App() {
           budgets={budgets}
           user={user}
           backendMode={isApiBackend}
-          needsAuthorization={needsAppAuthorization}
           onLoginRequest={() => setShowLogin(true)}
           onAutomationRequest={handleAutomationRequest}
           searchQuery={searchQuery}
@@ -135,7 +119,6 @@ export default function App() {
       );
     }
     if (activeTab === 'add') {
-      if (!canUseApp) return renderLockedState();
       return (
         <Add
           onAdd={handleAddTransaction}
@@ -151,7 +134,7 @@ export default function App() {
     if (activeTab === 'stats') {
       return <Stats transactions={transactions} budgets={budgets} />;
     }
-    return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={updateBudgets} onAuthorizeRequest={() => setShowLogin(true)} />;
+    return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={updateBudgets} />;
   };
 
   return (
@@ -203,7 +186,6 @@ export default function App() {
           panel={drawerPanel}
           transactions={transactions}
           isApiBackend={isApiBackend}
-          needsAppAuthorization={needsAppAuthorization}
           onClose={() => setDrawerPanel(null)}
         />
       </div>

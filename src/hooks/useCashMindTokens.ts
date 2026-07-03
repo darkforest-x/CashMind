@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { APP_ACCESS_TOKEN_STORAGE_KEY, APP_ACCESS_TOKEN_UPDATED_EVENT, apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 type TokenStatus = 'checking' | 'configured' | 'missing' | 'unavailable';
-type SessionStatus = 'checking' | 'authorized' | 'locked' | 'unavailable';
 
 type TokenStatusCopy = {
   readonly configuredText: string;
@@ -60,13 +59,6 @@ function setStoredValue(key: string, value: string): void {
   localStorage.setItem(key, value);
 }
 
-function notifyAppAccessChanged(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  window.dispatchEvent(new Event(APP_ACCESS_TOKEN_UPDATED_EVENT));
-}
-
 function buildTokenStatusText(status: TokenStatus, hint: string, copy: TokenStatusCopy): string {
   if (status === 'checking') {
     return '正在检查服务端配置';
@@ -80,57 +72,10 @@ function buildTokenStatusText(status: TokenStatus, hint: string, copy: TokenStat
   return hint ? `${copy.configuredText}，尾号 ${hint}` : copy.configuredText;
 }
 
-function buildSessionStatusText(status: SessionStatus): string {
-  if (status === 'checking') {
-    return '正在检查浏览器授权';
-  }
-  if (status === 'authorized') {
-    return '已授权，可读取和编辑账单';
-  }
-  if (status === 'unavailable') {
-    return '暂时无法连接服务端';
-  }
-  return '未授权，新设备打开服务端设置链接即可完成';
-}
-
 export function useCashMindTokens() {
-  const [appTokenStatus, setAppTokenStatus] = useState<TokenStatus>('checking');
-  const [appTokenHint, setAppTokenHint] = useState('');
   const [shortcutTokenStatus, setShortcutTokenStatus] = useState<TokenStatus>('checking');
   const [shortcutTokenHint, setShortcutTokenHint] = useState('');
   const [shortcutToken, setShortcutToken] = useState(() => getStoredValue(SHORTCUT_TOKEN_STORAGE_KEY));
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('checking');
-
-  const loadAppSession = useCallback(async () => {
-    try {
-      const response = await apiFetch('/api/app/session');
-      const payload = await readJson(response);
-      const authorized = response.ok && isRecord(payload) && payload.authorized === true;
-      setSessionStatus(authorized ? 'authorized' : 'locked');
-    } catch {
-      setSessionStatus('unavailable');
-    }
-  }, []);
-
-  const loadAppTokenStatus = useCallback(async () => {
-    try {
-      const response = await apiFetch('/api/app/token');
-      const parsed = parseTokenStatus(await readJson(response));
-      if (!response.ok || !parsed) {
-        setAppTokenStatus('missing');
-        return;
-      }
-
-      setAppTokenHint(parsed.hint);
-      setAppTokenStatus(parsed.configured ? 'configured' : 'missing');
-      if (parsed.token) {
-        setStoredValue(APP_ACCESS_TOKEN_STORAGE_KEY, parsed.token);
-        notifyAppAccessChanged();
-      }
-    } catch {
-      setAppTokenStatus('unavailable');
-    }
-  }, []);
 
   const loadShortcutTokenStatus = useCallback(async () => {
     try {
@@ -153,29 +98,15 @@ export function useCashMindTokens() {
   }, []);
 
   const refresh = useCallback(async () => {
-    await Promise.all([
-      loadAppSession(),
-      loadAppTokenStatus(),
-      loadShortcutTokenStatus(),
-    ]);
-  }, [loadAppSession, loadAppTokenStatus, loadShortcutTokenStatus]);
+    await loadShortcutTokenStatus();
+  }, [loadShortcutTokenStatus]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-    window.addEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refresh);
-    return () => {
-      window.removeEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refresh);
-    };
-  }, [refresh]);
-
   const shortcutTokenStatusText = useMemo(() => {
-    const configuredText = shortcutToken ? '已自动封装到快捷指令模板' : '服务端已自动生成，授权后自动封装';
+    const configuredText = shortcutToken ? '已自动封装到快捷指令模板' : '服务端已自动生成';
     return buildTokenStatusText(shortcutTokenStatus, shortcutTokenHint, {
       configuredText,
       missingText: '服务端启动时会自动生成快捷指令密钥',
@@ -183,14 +114,10 @@ export function useCashMindTokens() {
   }, [shortcutToken, shortcutTokenHint, shortcutTokenStatus]);
 
   return {
-    appSessionStatusText: buildSessionStatusText(sessionStatus),
-    appTokenStatusText: buildTokenStatusText(appTokenStatus, appTokenHint, {
-      configuredText: '服务端已自动生成',
-      missingText: '服务端启动时会自动生成访问密钥',
-    }),
+    appSessionStatusText: '网页直接读写，免手动配置',
     shortcutToken,
     shortcutTokenStatusText,
-    isAppSessionAuthorized: sessionStatus === 'authorized',
+    isAppSessionAuthorized: true,
     isShortcutTokenReady: Boolean(shortcutToken.trim()),
   };
 }

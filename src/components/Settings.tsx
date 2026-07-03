@@ -12,7 +12,6 @@ type SettingsProps = {
   readonly transactions?: readonly Transaction[];
   readonly budgets?: readonly Budget[];
   readonly onUpdateBudgets?: (budgets: Budget[]) => Promise<boolean | void> | boolean | void;
-  readonly onAuthorizeRequest?: () => void;
 };
 
 type Sheet = 'tutorial' | 'privacy' | 'pwa' | 'budget' | 'currency' | null;
@@ -34,7 +33,7 @@ function readDefaultCurrency(): Currency {
   return CURRENCIES.find((currency) => currency === saved) || 'CNY';
 }
 
-export default function Settings({ transactions = [], budgets = [], onUpdateBudgets, onAuthorizeRequest }: SettingsProps) {
+export default function Settings({ transactions = [], budgets = [], onUpdateBudgets }: SettingsProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [budgetAmount, setBudgetAmount] = useState('');
   const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -128,7 +127,7 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
       </section>
 
       <div className="mt-6">
-        <ShortcutAutomationCard onOpenGuide={() => setSheet('tutorial')} onAuthorizeRequest={onAuthorizeRequest || (() => setSheet('tutorial'))} />
+        <ShortcutAutomationCard onOpenGuide={() => setSheet('tutorial')} />
       </div>
 
       <section className="mt-6">
@@ -224,11 +223,10 @@ function TutorialContent() {
   return (
     <div className="space-y-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
       <h2 className="text-2xl font-black text-white">iPhone 快捷指令配置</h2>
-      <p className="cm-card rounded-[22px] p-4">1. 先授权当前浏览器。这个授权只用于网页读取和编辑账单，快捷指令写入用另一把密钥。</p>
-      <p className="cm-card rounded-[22px] p-4">2. 点“复制完整配置包”。里面已经包含入口 URL、POST 方法、JSON 示例和 token，不需要手拼 Header。</p>
-      <p className="cm-card rounded-[22px] p-4">3. 打开 iPhone 快捷指令，新建自动化，触发条件选 Wallet、短信、邮件或 OCR 文本，再添加“获取 URL 内容”。</p>
-      <p className="cm-card rounded-[22px] p-4">4. 把入口 URL 粘进去，方法选 POST，请求正文选 JSON。配置完回到这里点“自检写入”。</p>
-      <p className="cm-status-pill rounded-[18px] p-4 text-[var(--cm-text-soft)]">可以不配浏览器授权吗？不建议。公网 VPS 如果不授权，别人可能读取或修改你的账本；授权只需要第一次配置。</p>
+      <p className="cm-card rounded-[22px] p-4">1. 点“复制完整配置包”。里面已经包含入口 URL、POST 方法、JSON 示例和快捷指令 token，不需要手拼 Header。</p>
+      <p className="cm-card rounded-[22px] p-4">2. 打开 iPhone 快捷指令，新建自动化，触发条件选 Wallet、短信、邮件或 OCR 文本，再添加“获取 URL 内容”。</p>
+      <p className="cm-card rounded-[22px] p-4">3. 把入口 URL 粘进去，方法选 POST，请求正文选 JSON。配置完回到这里点“自检写入”。</p>
+      <p className="cm-status-pill rounded-[18px] p-4 text-[var(--cm-text-soft)]">网页现在不再要求授权码；打开 VPS 地址即可读写账本。</p>
     </div>
   );
 }
@@ -238,7 +236,7 @@ function PrivacyContent() {
     <div className="space-y-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
       <h2 className="text-2xl font-black text-white">隐私说明</h2>
       <p>AI 管钱花 1.0 是个人 VPS 自托管工具，账单数据存储在你的服务器或浏览器中。</p>
-      <p>浏览器授权用于读取和编辑，快捷指令密钥只允许写入。密钥泄露后请在 VPS 的 .env 中轮换。</p>
+      <p>网页端直接读写你的个人 VPS 账本；快捷指令密钥只用于手机自动写入。密钥泄露后请在 VPS 的 .env 中轮换。</p>
       <p>AI 解析需要调用配置的模型服务；如未配置或不可用，会使用本地规则兜底。</p>
     </div>
   );

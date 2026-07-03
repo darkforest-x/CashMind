@@ -17,7 +17,7 @@ curl http://103.214.174.58:3000/api/health
 curl -i http://103.214.174.58:3000/api/transactions
 ```
 
-`/api/transactions` 裸访问应该返回 `401 Unauthorized`。
+`/api/transactions` 裸访问应该返回 `200 OK` 和账单 JSON。
 
 ## 查看日志
 
@@ -78,22 +78,7 @@ cp /path/to/backup.db /var/www/cashmind/data/cashmind.db
 pm2 start cashmind
 ```
 
-## Token 轮换
-
-### 轮换 App 访问 Token
-
-```bash
-ssh root@103.214.174.58
-cd /var/www/cashmind
-NEW_TOKEN="$(openssl rand -hex 32)"
-sed -i "s/^APP_ACCESS_TOKEN=.*/APP_ACCESS_TOKEN=$NEW_TOKEN/" .env
-NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
-pm2 save
-```
-
-轮换后已授权浏览器的 Cookie 会失效。重新生成设置链接，在手机上打开一次即可。
-
-### 轮换快捷指令 Token
+## 快捷指令 Token 轮换
 
 ```bash
 ssh root@103.214.174.58
@@ -104,18 +89,7 @@ NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
 pm2 save
 ```
 
-然后在已授权浏览器的设置页重新复制“完整配置包”，更新 iPhone 快捷指令里的万能入口 URL。
-
-### 轮换设置 Token
-
-```bash
-ssh root@103.214.174.58
-cd /var/www/cashmind
-NEW_TOKEN="cm_setup_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
-sed -i "s/^SETUP_TOKEN=.*/SETUP_TOKEN=$NEW_TOKEN/" .env
-NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
-pm2 save
-```
+然后在设置页重新复制“完整配置包”，更新 iPhone 快捷指令里的万能入口 URL。
 
 ## 常见故障
 
@@ -123,10 +97,9 @@ pm2 save
 
 检查：
 
-1. 当前浏览器是否已经用设置链接授权。
-2. `curl http://103.214.174.58:3000/api/health` 是否正常。
-3. `pm2 status cashmind` 是否 online。
-4. 手机是否能访问 VPS。
+1. `curl http://103.214.174.58:3000/api/health` 是否正常。
+2. `pm2 status cashmind` 是否 online。
+3. 手机是否能访问 VPS。
 
 ### 快捷指令运行成功但没有新账单
 
@@ -150,23 +123,6 @@ pm2 logs cashmind --lines 100
 
 如果 key 无效或额度不足，服务会降级为本地规则，复杂短信和邮件识别效果会下降。
 
-### 公网能直接看到账单
+### 不想让公网直接看账单
 
-这是严重问题。立即检查：
-
-```bash
-curl -i http://103.214.174.58:3000/api/transactions
-pm2 env 0 | grep NODE_ENV
-```
-
-期望：
-
-- `/api/transactions` 返回 401。
-- `NODE_ENV` 是 `production`。
-
-如果不是，立刻用生产环境重启：
-
-```bash
-NODE_ENV=production HOST=0.0.0.0 PORT=3000 pm2 restart cashmind --update-env
-pm2 save
-```
+当前 1.0 按免授权体验部署，公网地址可直接读写个人账本。后续如果需要恢复访问保护，应在 Nginx、Cloudflare Access 或服务端中重新加一层登录/口令。

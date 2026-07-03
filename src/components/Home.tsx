@@ -34,7 +34,6 @@ type HomeProps = {
   readonly budgets?: readonly Budget[];
   readonly user?: User | null;
   readonly backendMode?: boolean;
-  readonly needsAuthorization?: boolean;
   readonly onLoginRequest?: () => void;
   readonly onAutomationRequest?: () => void;
   readonly searchQuery?: string;
@@ -81,7 +80,6 @@ export default function Home({
   budgets = [],
   user,
   backendMode = false,
-  needsAuthorization = false,
   onLoginRequest,
   onAutomationRequest,
   searchQuery = '',
@@ -124,8 +122,8 @@ export default function Home({
   }).filter((card) => card.count > 0).slice(0, 6);
 
   const getCategory = (id: string) => MOCK_CATEGORIES.find((category) => category.id === id) || MOCK_CATEGORIES[0];
-  const serviceStatusText = backendMode ? (needsAuthorization ? '待授权' : '已连接') : user ? '云端已连接' : '未连接';
-  const primaryActionText = needsAuthorization || (!backendMode && !user) ? '连接个人服务' : '查看自动化状态';
+  const serviceStatusText = backendMode ? '自托管已连接' : user ? '云端已连接' : '未连接';
+  const primaryActionText = backendMode || user ? '查看自动化状态' : '登录云端账号';
   const summaryCards = [
     { label: '收入', caption: '本月进账', value: formatCurrency(totalIncome, 'CNY'), delta: `${monthTransactions.filter((transaction) => transaction.type === 'income').length} 笔收入`, icon: ArrowDownLeft, tone: 'text-[var(--cm-green)]' },
     { label: '支出', caption: '本月消费', value: formatCurrency(totalExpense, 'CNY'), delta: `${monthTransactions.filter((transaction) => transaction.type === 'expense').length} 笔支出`, icon: ArrowUpRight, tone: 'text-[var(--cm-red)]' },
@@ -195,9 +193,9 @@ export default function Home({
       <section className="mt-9">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[27px] font-black">近期流水</h2>
-          <span className="text-sm text-[var(--cm-text-muted)]">{backendMode ? (needsAuthorization ? '待授权' : '自托管') : user ? '已同步' : '未连接'}</span>
+          <span className="text-sm text-[var(--cm-text-muted)]">{backendMode ? '自托管' : user ? '已同步' : '未连接'}</span>
         </div>
-        {((backendMode && needsAuthorization) || (!backendMode && !user)) && transactions.length === 0 ? (
+        {!backendMode && !user && transactions.length === 0 ? (
           <button type="button" onClick={onLoginRequest} className="cm-card w-full rounded-[28px] p-8 text-center">
             <CloudOff className="mx-auto h-10 w-10 text-[var(--cm-text-muted)]" />
             <p className="mt-4 font-bold">未连接个人服务</p>

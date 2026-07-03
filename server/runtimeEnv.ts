@@ -3,20 +3,14 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 
-type RuntimeSecretName = "APP_ACCESS_TOKEN" | "SHORTCUT_TOKEN" | "SETUP_TOKEN" | "OWNER_SETUP_TOKEN";
+type RuntimeSecretName = "SHORTCUT_TOKEN";
 
 const RUNTIME_SECRET_NAMES: readonly RuntimeSecretName[] = [
-  "APP_ACCESS_TOKEN",
   "SHORTCUT_TOKEN",
-  "SETUP_TOKEN",
-  "OWNER_SETUP_TOKEN",
 ] as const;
 
 const TOKEN_PREFIX: Record<RuntimeSecretName, string> = {
-  APP_ACCESS_TOKEN: "cm_app",
   SHORTCUT_TOKEN: "cm_shortcut",
-  SETUP_TOKEN: "cm_setup",
-  OWNER_SETUP_TOKEN: "cm_owner",
 };
 
 function generateToken(name: RuntimeSecretName): string {
@@ -48,10 +42,7 @@ export function loadRuntimeEnv(): void {
   dotenv.config({ quiet: true });
 
   const generatedSecrets: Record<RuntimeSecretName, string | null> = {
-    APP_ACCESS_TOKEN: null,
     SHORTCUT_TOKEN: null,
-    SETUP_TOKEN: null,
-    OWNER_SETUP_TOKEN: null,
   };
 
   for (const name of RUNTIME_SECRET_NAMES) {

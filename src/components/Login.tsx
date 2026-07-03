@@ -1,14 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import * as Icons from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { APP_ACCESS_TOKEN_UPDATED_EVENT, getApiUrl } from '../lib/api';
 import { signInWithGoogle, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, auth } from '../lib/firebase';
 import { useToast } from './Toast';
 
 type LoginProps = {
-  readonly isApiBackend?: boolean;
   readonly onBack?: () => void;
-  readonly onSelfHostedAuthorized?: () => void;
 };
 
 type LoginMode = 'login' | 'register' | 'select';
@@ -21,20 +18,12 @@ function getErrorCode(error: unknown): string {
   return typeof code === 'string' ? code : '';
 }
 
-function notifyAppAccessChanged(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  window.dispatchEvent(new Event(APP_ACCESS_TOKEN_UPDATED_EVENT));
-}
-
-export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthorized }: LoginProps) {
+export default function Login({ onBack }: LoginProps) {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<LoginMode>('select');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [setupToken, setSetupToken] = useState('');
   const { showToast } = useToast();
 
   const handleGoogleLogin = async () => {
@@ -46,43 +35,6 @@ export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthor
     } catch (error) {
       console.error('Login failed:', error instanceof Error ? error.message : String(error));
       showToast('登录失败，请重试', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelfHostedAuth = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const token = setupToken.trim();
-    if (!token) {
-      showToast('请输入服务授权码', 'error');
-      return;
-    }
-
-    const url = getApiUrl('/api/app/session');
-    if (!url) {
-      showToast('个人服务地址未配置', 'error');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ setupToken: token }),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      notifyAppAccessChanged();
-      showToast('个人服务已连接', 'success');
-      onSelfHostedAuthorized?.();
-      onBack?.();
-    } catch (error) {
-      console.error('Self-hosted authorization failed:', error instanceof Error ? error.message : String(error));
-      showToast('服务授权失败，请检查授权码', 'error');
     } finally {
       setLoading(false);
     }
@@ -133,7 +85,7 @@ export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthor
             {mode === 'select' ? <Icons.X className="h-5 w-5" /> : <Icons.ArrowLeft className="h-5 w-5" />}
           </button>
           <span className="cm-status-pill rounded-full px-3 py-1 text-xs font-bold text-[var(--cm-green)]">
-            {isApiBackend ? 'Self-hosted' : 'Cloud Sync'}
+            Cloud Sync
           </span>
         </div>
 
@@ -141,74 +93,49 @@ export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthor
           <div className="grid h-16 w-16 place-items-center rounded-full bg-[var(--cm-purple)] text-black">
             <Icons.Sparkles className="h-8 w-8" />
           </div>
-          <h1 className="mt-6 text-[34px] font-black">{isApiBackend ? '授权当前浏览器' : mode === 'register' ? '创建账号' : '欢迎回来'}</h1>
+          <h1 className="mt-6 text-[34px] font-black">{mode === 'register' ? '创建账号' : '欢迎回来'}</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-[var(--cm-text-soft)]">
-            {isApiBackend ? '这不是快捷指令配置。授权一次后，网页才能读取、编辑和保存你的账单。' : '登录后同步你的 AI 自动账本。'}
+            登录后同步你的 AI 自动账本。
           </p>
         </motion.div>
 
-        {isApiBackend ? (
-          <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSelfHostedAuth} className="mt-8 space-y-4">
-            <div className="cm-action-row rounded-[22px] p-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
-              可以不配吗？公网 VPS 不建议关闭授权，否则别人打开地址就可能读取或修改账本。正常只需第一次打开授权链接，之后不用再填。
-            </div>
-            <label className="block">
-              <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">兜底授权码</span>
-              <input
-                type="password"
-                value={setupToken}
-                onChange={(event) => setSetupToken(event.target.value)}
-                placeholder="没有一键授权链接时再粘贴"
-                autoComplete="one-time-code"
-                className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]"
-              />
-            </label>
-            <button type="submit" disabled={loading} className="cm-primary cm-press h-14 w-full rounded-[22px] text-sm font-black disabled:opacity-50">
-              {loading ? '连接中' : '完成授权'}
-            </button>
-            <div className="cm-action-row rounded-[22px] p-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
-              部署完成后会生成一个包含 setup 参数的授权链接。用手机 Safari 打开它，会自动完成这里的授权。
-            </div>
-          </motion.form>
-        ) : (
-          <AnimatePresence mode="wait">
-            {mode === 'select' ? (
-              <motion.div key="select" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-8 space-y-3">
-                <button type="button" onClick={handleGoogleLogin} disabled={loading} className="cm-action-row cm-press flex h-14 w-full items-center justify-center gap-3 rounded-[22px] font-bold disabled:opacity-50">
-                  <Icons.LogIn className="h-5 w-5 text-[var(--cm-purple)]" />
-                  使用 Google 账号登录
-                </button>
-                <button type="button" onClick={() => setMode('login')} className="cm-primary cm-press flex h-14 w-full items-center justify-center gap-3 rounded-[22px] font-bold">
-                  <Icons.Mail className="h-5 w-5" />
-                  使用邮箱登录
-                </button>
-                <button type="button" onClick={() => setMode('register')} className="cm-chip cm-press h-12 w-full rounded-[20px] text-sm font-bold">
-                  创建新账号
-                </button>
-              </motion.div>
-            ) : (
-              <motion.form key="email-form" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} onSubmit={handleEmailAuth} className="mt-8 space-y-4">
-                {mode === 'register' && (
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">昵称</span>
-                    <input type="text" required value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="您的称呼" autoComplete="name" className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
-                  </label>
-                )}
+        <AnimatePresence mode="wait">
+          {mode === 'select' ? (
+            <motion.div key="select" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-8 space-y-3">
+              <button type="button" onClick={handleGoogleLogin} disabled={loading} className="cm-action-row cm-press flex h-14 w-full items-center justify-center gap-3 rounded-[22px] font-bold disabled:opacity-50">
+                <Icons.LogIn className="h-5 w-5 text-[var(--cm-purple)]" />
+                使用 Google 账号登录
+              </button>
+              <button type="button" onClick={() => setMode('login')} className="cm-primary cm-press flex h-14 w-full items-center justify-center gap-3 rounded-[22px] font-bold">
+                <Icons.Mail className="h-5 w-5" />
+                使用邮箱登录
+              </button>
+              <button type="button" onClick={() => setMode('register')} className="cm-chip cm-press h-12 w-full rounded-[20px] text-sm font-bold">
+                创建新账号
+              </button>
+            </motion.div>
+          ) : (
+            <motion.form key="email-form" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} onSubmit={handleEmailAuth} className="mt-8 space-y-4">
+              {mode === 'register' && (
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">邮箱</span>
-                  <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
+                  <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">昵称</span>
+                  <input type="text" required value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="您的称呼" autoComplete="name" className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
                 </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">密码</span>
-                  <input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="输入密码" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
-                </label>
-                <button type="submit" disabled={loading} className="cm-primary cm-press h-14 w-full rounded-[22px] font-black disabled:opacity-50">
-                  {loading ? '处理中' : mode === 'register' ? '立即注册' : '登录'}
-                </button>
-              </motion.form>
-            )}
-          </AnimatePresence>
-        )}
+              )}
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">邮箱</span>
+                <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">密码</span>
+                <input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="输入密码" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]" />
+              </label>
+              <button type="submit" disabled={loading} className="cm-primary cm-press h-14 w-full rounded-[22px] font-black disabled:opacity-50">
+                {loading ? '处理中' : mode === 'register' ? '立即注册' : '登录'}
+              </button>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -11,7 +11,6 @@ import { useToast } from './Toast';
 
 type ShortcutAutomationCardProps = {
   readonly onOpenGuide: () => void;
-  readonly onAuthorizeRequest: () => void;
 };
 
 type ManualCopyState = {
@@ -34,22 +33,17 @@ const AUTOMATION_STEPS = [
   { title: '3. AI 自动入账', detail: '服务端识别金额、时间、分类，并同步到流水。', icon: Icons.Sparkles },
 ] satisfies readonly { readonly title: string; readonly detail: string; readonly icon: LucideIcon }[];
 
-export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest }: ShortcutAutomationCardProps) {
+export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomationCardProps) {
   const { showToast } = useToast();
   const [isTesting, setIsTesting] = useState(false);
   const [manualCopy, setManualCopy] = useState<ManualCopyState | null>(null);
-  const { appSessionStatusText, shortcutToken, shortcutTokenStatusText, isAppSessionAuthorized, isShortcutTokenReady } = useCashMindTokens();
+  const { appSessionStatusText, shortcutToken, shortcutTokenStatusText, isShortcutTokenReady } = useCashMindTokens();
   const captureUrl = getApiUrl('/api/shortcut/capture');
   const templates = useMemo(() => buildShortcutTemplates({ captureUrl, shortcutToken }), [captureUrl, shortcutToken]);
 
-  const requestAuthorization = () => {
-    showToast('先授权当前浏览器，配置包会自动生成', 'info');
-    onAuthorizeRequest();
-  };
-
   const copyTemplate = async (title: string, value: string, message: string) => {
     if (!isShortcutTokenReady) {
-      requestAuthorization();
+      showToast('快捷指令密钥还没加载完成，请刷新或检查 VPS 状态', 'error');
       return;
     }
     const copied = await copyToClipboard(value);
@@ -64,7 +58,7 @@ export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest
   const testShortcutCapture = async () => {
     const token = shortcutToken.trim();
     if (!captureUrl || !token) {
-      requestAuthorization();
+      showToast('快捷指令密钥还没加载完成，请刷新或检查 VPS 状态', 'error');
       return;
     }
     setIsTesting(true);
@@ -118,7 +112,7 @@ export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest
             <p className="text-sm font-bold text-[var(--cm-purple)]">Automation Engine</p>
             <h2 className="mt-1 text-2xl font-black">无感自动记账流程</h2>
             <p className="mt-2 max-w-[240px] text-sm leading-relaxed text-[var(--cm-text-soft)]">
-              授权一次浏览器后，复制配置包到 iPhone 快捷指令即可。
+              打开网页即可复制配置包，iPhone 快捷指令不用手拼 Header。
             </p>
           </div>
           <div className="text-right">
@@ -130,7 +124,7 @@ export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest
         </div>
 
         <div className="mt-5 grid gap-2">
-          {AUTOMATION_STEPS.map((step) => {
+            {AUTOMATION_STEPS.map((step) => {
             const Icon = step.icon;
             return (
               <div key={step.title} className="cm-action-row flex items-start gap-3 rounded-[20px] p-3">
@@ -147,8 +141,8 @@ export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest
         </div>
 
         <div className="mt-5 space-y-3">
-          {[
-            { label: '浏览器授权', value: `${appSessionStatusText}。只保护网页读取和编辑。`, icon: Icons.ShieldCheck },
+            {[
+            { label: '网页读写', value: appSessionStatusText, icon: Icons.ShieldOff },
             { label: '快捷指令密钥', value: `${shortcutTokenStatusText}。只允许手机写入流水。`, icon: Icons.KeyRound },
           ].map((item) => {
             const Icon = item.icon;
@@ -168,16 +162,10 @@ export default function ShortcutAutomationCard({ onOpenGuide, onAuthorizeRequest
           })}
         </div>
 
-        {!isAppSessionAuthorized && (
-          <button type="button" onClick={onAuthorizeRequest} className="cm-primary cm-press mt-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-[20px] text-sm font-black">
-            <Icons.LockKeyhole className="h-4 w-4" /> 授权当前浏览器
-          </button>
-        )}
-
         <div className="mt-5 rounded-[24px] bg-black/45 p-4">
           <p className="text-sm font-bold">万能入口 URL</p>
           <code className="mt-3 block break-all rounded-[18px] bg-[var(--cm-card-raised)] p-3 font-mono text-xs text-[var(--cm-text-soft)]">
-            {isShortcutTokenReady ? templates.captureUrl : '授权当前浏览器后自动生成'}
+            {isShortcutTokenReady ? templates.captureUrl : '等待服务端返回快捷指令密钥'}
           </code>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" onClick={() => copyTemplate('万能入口 URL', templates.captureUrl, '入口 URL 已复制')} className="cm-card-raised cm-press flex h-12 items-center justify-center gap-2 rounded-[18px] text-sm font-bold">

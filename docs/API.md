@@ -6,26 +6,9 @@ Base URL:
 http://103.214.174.58:3000
 ```
 
-## 鉴权模型
+## 访问模型
 
-CashMind 1.0 有三个服务端密钥，默认由服务端首次启动时自动生成。
-
-### `APP_ACCESS_TOKEN`
-
-用于浏览器/PWA 的读写能力：
-
-```text
-Authorization: Bearer YOUR_APP_ACCESS_TOKEN
-```
-
-浏览器端推荐使用设置链接换取 httpOnly Cookie，不需要用户手动保存这个 token。
-
-保护范围：
-
-- 读取账单
-- 新增、编辑、删除账单
-- 读取和设置预算
-- AI 分类
+CashMind 1.0 为了降低配置成本，浏览器/PWA 打开个人 VPS 地址即可读取、编辑、删除账单和设置预算。
 
 ### `SHORTCUT_TOKEN`
 
@@ -41,17 +24,7 @@ Authorization: Bearer YOUR_SHORTCUT_TOKEN
 - Wallet 导入
 - 文本导入
 
-`SHORTCUT_TOKEN` 不能读取账单，避免快捷指令 token 泄露后暴露全部财务数据。
-
-### `SETUP_TOKEN`
-
-用于新浏览器授权：
-
-```text
-http://103.214.174.58:3000/?setup=YOUR_SETUP_TOKEN
-```
-
-授权成功后，服务端设置 httpOnly Cookie。这个 token 不应放进快捷指令，也不应公开。
+网页设置页会自动读取 `SHORTCUT_TOKEN` 并封装到完整配置包里，用户不需要手动复制 `.env`。
 
 ## 公共接口
 
@@ -67,39 +40,23 @@ GET /api/health
 {"status":"ok"}
 ```
 
-### App Token 状态
-
-```http
-GET /api/app/token
-```
-
-生产环境只返回是否配置和尾号：
-
-```json
-{
-  "configured": true,
-  "hint": "eb44"
-}
-```
-
 ### 快捷指令 Token 状态
 
 ```http
 GET /api/shortcut/token
 ```
 
-生产环境只返回是否配置和尾号：
+响应：
 
 ```json
 {
   "configured": true,
-  "hint": "oken"
+  "hint": "xxxx",
+  "token": "cm_shortcut_..."
 }
 ```
 
-已授权浏览器请求时会额外返回完整 `token`，用于前端自动生成快捷指令配置包。
-
-### 浏览器授权状态
+### 浏览器服务状态
 
 ```http
 GET /api/app/session
@@ -111,27 +68,9 @@ GET /api/app/session
 {"authorized":true}
 ```
 
-### 设置链接授权
-
-```http
-POST /api/app/session
-```
-
-Body:
-
-```json
-{"setupToken":"YOUR_SETUP_TOKEN"}
-```
-
-成功后返回：
-
-```json
-{"success":true}
-```
-
 ## 浏览器/PWA 接口
 
-以下接口都需要 `APP_ACCESS_TOKEN` Bearer 鉴权或已授权浏览器 Cookie。
+以下接口打开即可调用。
 
 ### 读取账单
 
@@ -142,8 +81,7 @@ GET /api/transactions
 示例：
 
 ```bash
-curl http://103.214.174.58:3000/api/transactions \
-  -H "Authorization: Bearer YOUR_APP_ACCESS_TOKEN"
+curl http://103.214.174.58:3000/api/transactions
 ```
 
 ### 新增账单
@@ -324,7 +262,7 @@ Body:
 
 ## 安全注意
 
-- 不要把完整 token 写进文档、截图或聊天记录。
-- 生产环境下 `/api/app/token` 不应该返回完整 token；`/api/shortcut/token` 只允许已授权浏览器拿到完整 token。
-- 如果 token 泄露，立刻在 VPS `.env` 中替换并重启 PM2。
-- 绑定 HTTPS 域名前，尽量不要在公共 Wi-Fi 下打开设置链接。
+- 当前 1.0 是个人自用免授权部署，公网地址可以直接读写账本；不要把地址发到公开渠道。
+- 不要把完整 `SHORTCUT_TOKEN` 写进文档、截图或聊天记录。
+- 如果快捷指令 token 泄露，立刻在 VPS `.env` 中替换并重启 PM2。
+- 绑定 HTTPS 域名前，尽量不要在公共 Wi-Fi 下配置快捷指令。
