@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Tooltip, XAxis, YAxis } from 'recharts';
 import { format, isWithinInterval, endOfDay, parseISO, startOfMonth, startOfWeek, startOfYear, subDays } from 'date-fns';
 import { Activity, AlertTriangle, CheckCircle2, Sparkles, TrendingUp } from 'lucide-react';
 import type { Budget, Transaction } from '../types';
@@ -15,9 +15,53 @@ type StatsProps = {
 type TimeRange = 'week' | 'month' | 'year';
 
 const EXCHANGE_RATES: Record<string, number> = { CNY: 1, USD: 7.23, EUR: 7.75, JPY: 0.047 };
+const TREND_CHART_HEIGHT = 192;
 
 function toCNY(amount: number, currency = 'CNY') {
   return amount * (EXCHANGE_RATES[currency] || 1);
+}
+
+type TrendPoint = {
+  readonly date: string;
+  readonly amount: number;
+};
+
+function TrendAreaChart({ data }: { readonly data: readonly TrendPoint[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return undefined;
+
+    const updateWidth = () => {
+      setWidth(Math.max(1, Math.floor(element.getBoundingClientRect().width)));
+    };
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="h-48 min-w-0">
+      {width > 1 && (
+        <AreaChart width={width} height={TREND_CHART_HEIGHT} data={data} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
+          <defs>
+            <linearGradient id="cashmindPhantomTrend" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="var(--cm-green)" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="var(--cm-green)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--cm-text-muted)' }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--cm-text-muted)' }} />
+          <Tooltip contentStyle={{ background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, color: '#fff' }} formatter={(value: number) => [formatCurrency(value, 'CNY'), '支出']} />
+          <Area type="monotone" dataKey="amount" stroke="var(--cm-green)" strokeWidth={4} fill="url(#cashmindPhantomTrend)" activeDot={{ r: 6, fill: 'var(--cm-green)', strokeWidth: 0 }} />
+        </AreaChart>
+      )}
+    </div>
+  );
 }
 
 export default function Stats({ transactions, budgets = [] }: StatsProps) {
@@ -86,28 +130,30 @@ export default function Stats({ transactions, budgets = [] }: StatsProps) {
   return (
     <div className="h-full overflow-y-auto px-7 pb-32 pt-36 text-white cm-scrollbar">
       <section>
-        <h1 className="text-[30px] font-black">Featured ›</h1>
+        <h1 className="text-[30px] font-black">预算预测 ›</h1>
         <div className="cm-card mt-5 rounded-[28px] p-6">
-          <p className="text-sm font-bold text-[var(--cm-text-soft)]">Budget Market</p>
+          <p className="text-sm font-bold text-[var(--cm-text-soft)]">本月消费节奏</p>
           <div className="mt-5 flex items-end justify-between gap-4">
             <div>
               <p className="text-[32px] font-black">{currentBudget ? formatCurrency(budgetLeft, 'CNY') : '未设置'}</p>
               <p className="mt-2 text-sm text-[var(--cm-text-soft)]">本月预算剩余</p>
             </div>
-            <Sparkles className="h-10 w-10 text-[var(--cm-purple)]" />
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-black text-[var(--cm-purple)]">
+              <Sparkles className="h-7 w-7" />
+            </span>
           </div>
           <div className="mt-6 h-2 overflow-hidden rounded-full bg-black">
             <motion.div className={cn('h-full rounded-full', safeBudgetRatio > 90 ? 'bg-[var(--cm-red)]' : 'bg-[var(--cm-purple)]')} initial={{ width: 0 }} animate={{ width: `${safeBudgetRatio}%` }} />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 text-center text-sm font-bold text-[var(--cm-text-soft)]">
-            <span className="rounded-full bg-black/40 py-3">{Math.round(safeBudgetRatio)}%</span>
-            <span className="rounded-full bg-black/40 py-3">{formatCurrency(monthExpense, 'CNY')}</span>
+            <span className="cm-status-pill rounded-full py-3">{Math.round(safeBudgetRatio)}% 已用</span>
+            <span className="cm-status-pill rounded-full py-3">{formatCurrency(monthExpense, 'CNY')}</span>
           </div>
         </div>
       </section>
 
-      <section className="mt-10">
-        <div className="mb-5 flex items-center justify-between">
+      <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[30px] font-black">趋势 ›</h2>
           <div className="flex rounded-full bg-[var(--cm-chip)] p-1">
             {(['week', 'month', 'year'] as const).map((range) => (
@@ -122,32 +168,20 @@ export default function Stats({ transactions, budgets = [] }: StatsProps) {
             ))}
           </div>
         </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trendData} margin={{ top: 8, right: 0, left: -22, bottom: 0 }}>
-              <defs>
-                <linearGradient id="cashmindPhantomTrend" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="var(--cm-green)" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="var(--cm-green)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--cm-text-muted)' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--cm-text-muted)' }} />
-              <Tooltip contentStyle={{ background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, color: '#fff' }} formatter={(value: number) => [formatCurrency(value, 'CNY'), '支出']} />
-              <Area type="monotone" dataKey="amount" stroke="var(--cm-green)" strokeWidth={4} fill="url(#cashmindPhantomTrend)" activeDot={{ r: 6, fill: 'var(--cm-green)', strokeWidth: 0 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <TrendAreaChart data={trendData} />
       </section>
 
       <section className="mt-8">
-        <h2 className="text-[30px] font-black">Upcoming ›</h2>
+        <h2 className="text-[30px] font-black">分类排行 ›</h2>
         <div className="-mx-7 mt-5 flex gap-3 overflow-x-auto px-7 pb-2 cm-scrollbar">
-          {categoryData.slice(0, 5).map((category) => (
+          {categoryData.slice(0, 5).map((category, index) => (
             <div key={category.name} className="cm-card min-w-[190px] rounded-[24px] p-5">
-              <span className="block h-12 w-12 rounded-2xl" style={{ backgroundColor: category.color }} />
+              <span className="relative block h-12 w-12 rounded-2xl" style={{ backgroundColor: category.color }}>
+                <span className="absolute -bottom-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--cm-amber)] px-1 text-[10px] font-black text-black">{index + 1}</span>
+              </span>
               <p className="mt-5 font-bold">{category.name}</p>
               <p className="mt-2 text-sm text-[var(--cm-text-soft)]">{formatCurrency(category.value, 'CNY')}</p>
+              <p className="mt-3 text-sm font-bold text-[var(--cm-green)]">{(category.value / Math.max(totalExpense, 1) * 100).toFixed(1)}%</p>
             </div>
           ))}
         </div>
@@ -155,8 +189,8 @@ export default function Stats({ transactions, budgets = [] }: StatsProps) {
 
       <section className="mt-8">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[30px] font-black">World Cash Chat</h2>
-          <span className="text-sm text-[var(--cm-green)]">● AI 正在分析</span>
+          <h2 className="text-[30px] font-black">AI 洞察</h2>
+          <span className="cm-status-pill rounded-full px-3 py-1 text-sm text-[var(--cm-green)]">AI 正在分析</span>
         </div>
         <div className="cm-card space-y-5 rounded-[28px] p-6">
           {insightRows.map((row) => {

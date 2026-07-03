@@ -109,6 +109,19 @@ All spacing derives from 4px.
 - **Variants**: horizontal source card, insight card, settings list card, chart panel.
 - **States**: tap scale and tonal raise only.
 
+### Action Rows
+
+- **Structure**: one row, circular icon, title, secondary detail, right chevron/status.
+- **Usage**: settings actions, shortcut setup actions, transaction sheet actions.
+- **States**: raised graphite default, purple selected, red destructive.
+- **Sizing**: 56px to 72px height depending on content; labels never wrap into single-character lines.
+
+### Status Pills
+
+- **Structure**: compact rounded pill with a small dot or icon and one short status string.
+- **Usage**: automation ready state, budget progress, copy/self-test state.
+- **Color**: green for ready/synced, amber for setup, red for error.
+
 ### Bottom Search
 
 - **Structure**: fixed pill input at bottom-left with search icon.
@@ -165,6 +178,7 @@ Rules:
 - Avoid nested cards inside cards; lists are rows on one parent surface.
 - Avoid decorative orbs and bokeh blobs.
 - If a component appears twice, use a shared CSS utility or primitive.
+- Bottom floating controls must not cover the primary reading target; long pages reserve extra bottom padding and sheets portal above the shell.
 
 ## Reference Notes
 

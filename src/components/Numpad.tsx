@@ -11,7 +11,7 @@ const NUMPAD_KEYS = ['1', '2', '3', 'C', '4', '5', '6', 'DEL', '7', '8', '9', 'O
 
 export default function Numpad({ onInput, onSave }: NumpadProps) {
   return (
-    <div className="grid max-h-[330px] grid-cols-4 gap-3">
+    <div className="grid max-h-[300px] grid-cols-4 gap-2.5">
       {NUMPAD_KEYS.map((key) => {
         if (key === 'OK') {
           return (
@@ -20,7 +20,7 @@ export default function Numpad({ onInput, onSave }: NumpadProps) {
               type="button"
               whileTap={{ scale: 0.94 }}
               onClick={onSave}
-              className="cm-primary row-span-2 rounded-[24px] text-[17px] font-black"
+              className="cm-primary cm-press row-span-2 rounded-[22px] text-[17px] font-black"
             >
               保存
             </motion.button>
@@ -33,7 +33,7 @@ export default function Numpad({ onInput, onSave }: NumpadProps) {
             whileTap={{ scale: 0.94 }}
             onClick={() => onInput(key)}
             className={cn(
-              'cm-card grid h-[64px] place-items-center rounded-[24px] text-2xl font-black',
+              'cm-card cm-press grid h-14 place-items-center rounded-[22px] text-xl font-black',
               key === '0' && 'col-span-2',
               (key === 'C' || key === 'DEL') && 'text-[var(--cm-red)]',
             )}

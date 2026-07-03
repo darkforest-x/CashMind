@@ -137,7 +137,7 @@ export default function Home({
           {netBalance < 0 ? '-' : ''}{formatCurrency(Math.abs(netBalance), 'CNY')}
         </h1>
         <p className="mt-3 text-[17px] text-[var(--cm-text-soft)]">本月支出 {formatCurrency(totalExpense, 'CNY')}，自动同步 {backendMode ? '已连接' : user ? '云端已连接' : '未连接'}。</p>
-        <button type="button" onClick={onLoginRequest} className="cm-primary mt-7 h-[66px] w-full rounded-full text-[17px] font-bold">
+        <button type="button" onClick={onLoginRequest} className="cm-primary cm-press mt-7 h-[66px] w-full rounded-full text-[17px] font-bold">
           {backendMode || user ? '查看自动化状态' : '连接个人服务'}
         </button>
       </section>
@@ -216,7 +216,7 @@ export default function Home({
                       const Icon = CATEGORY_ICONS[category.icon] || HelpCircle;
                       const source = SOURCE_META[transaction.source];
                       return (
-                        <button key={transaction.id} type="button" onClick={() => setSelectedTx(transaction)} className="flex w-full items-center gap-4 border-b border-[var(--cm-border)] py-3 text-left transition-colors last:border-b-0 hover:bg-white/5">
+                        <button key={transaction.id} type="button" onClick={() => setSelectedTx(transaction)} className="cm-press flex w-full items-center gap-4 border-b border-[var(--cm-border)] py-3 text-left transition-colors last:border-b-0 hover:bg-white/5">
                           <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full" style={{ backgroundColor: category.color }}>
                             <Icon className="h-6 w-6 text-white" />
                             <span className="absolute -bottom-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--cm-amber)] px-1 text-[10px] font-black text-black">{index + 1}</span>

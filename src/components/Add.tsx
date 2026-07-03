@@ -102,7 +102,8 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
   };
 
   return (
-    <div className="h-full overflow-y-auto px-7 pb-32 pt-36 text-white cm-scrollbar">
+    <div className="flex h-full flex-col overflow-hidden px-7 pt-36 text-white">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-5 cm-scrollbar">
       <section>
         <div className="flex items-center justify-between">
           <div>
@@ -133,11 +134,36 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
           <button type="button" onClick={() => setCurrencyMenuOpen(true)} className="text-4xl font-black text-[var(--cm-purple)]">
             {getCurrencySymbol(currency)}
           </button>
-          <span className="ml-2 align-baseline text-[64px] font-black leading-none">{amount}</span>
+          <span className="ml-2 align-baseline text-[clamp(48px,16vw,64px)] font-black leading-none">{amount}</span>
+        </div>
+
+        <div className="cm-action-row mt-7 flex items-center justify-between rounded-[24px] p-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-black text-[var(--cm-purple)]">
+              <Icons.Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-bold">AI 草稿</p>
+              <p className="mt-1 text-sm text-[var(--cm-text-soft)]">{note.trim() ? '正在根据备注推测分类' : '输入备注后自动推测'}</p>
+            </div>
+          </div>
+          <span className={cn('cm-status-pill rounded-full px-3 py-1 text-xs font-bold', isClassifying ? 'text-[var(--cm-amber)]' : 'text-[var(--cm-green)]')}>
+            {isClassifying ? '分析中' : '就绪'}
+          </span>
         </div>
       </section>
 
-      <section className="mt-7">
+      <section className="mt-4">
+        <input
+          type="text"
+          placeholder="添加商户、备注或交易来源"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]"
+        />
+      </section>
+
+      <section className="mt-5">
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--cm-purple)]">
           <Icons.Sparkles className="h-4 w-4" />
           <span>AI 智能推测分类</span>
@@ -151,7 +177,7 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
                 key={item.id}
                 type="button"
                 onClick={() => setCategory(item.id)}
-                className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-bold', category === item.id ? 'cm-chip-active' : 'cm-chip')}
+                className={cn('cm-press shrink-0 rounded-full px-4 py-2 text-sm font-bold', category === item.id ? 'cm-chip-active' : 'cm-chip')}
               >
                 {item.name}{suggestion ? ` ${suggestion.prob}%` : ''}
               </button>
@@ -160,17 +186,9 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
         </div>
       </section>
 
-      <section className="mt-5">
-        <input
-          type="text"
-          placeholder="添加商户、备注或交易来源"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className="cm-input h-16 w-full rounded-[24px] px-5 text-[16px]"
-        />
-      </section>
+      </div>
 
-      <div className="mt-6">
+      <div className="shrink-0 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-2">
         <Numpad onInput={handleNumpad} onSave={handleSave} />
       </div>
 
@@ -191,7 +209,7 @@ export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddP
                       setCurrency(item);
                       setCurrencyMenuOpen(false);
                     }}
-                    className={cn('cm-card flex h-14 w-full items-center justify-between rounded-[22px] px-5 font-bold', currency === item && 'bg-[var(--cm-purple)] text-black')}
+                    className={cn('cm-press cm-action-row flex h-14 w-full items-center justify-between rounded-[22px] px-5 font-bold', currency === item && 'bg-[var(--cm-purple)] text-black')}
                   >
                     <span>{item}</span>
                     <span>{getCurrencySymbol(item)}</span>

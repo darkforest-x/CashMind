@@ -104,9 +104,12 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
             <p className="text-sm font-bold text-[var(--cm-text-soft)]">Automation Engine</p>
             <h2 className="mt-1 text-2xl font-black">快捷指令入口</h2>
           </div>
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-[var(--cm-purple)] text-black">
-            <Icons.Zap className="h-6 w-6" />
-          </span>
+          <div className="text-right">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-[var(--cm-purple)] text-black">
+              <Icons.Zap className="h-6 w-6" />
+            </span>
+            <span className="cm-status-pill mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold text-[var(--cm-green)]">Live</span>
+          </div>
         </div>
 
         <div className="mt-5 space-y-3">
@@ -116,9 +119,11 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
           ].map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="rounded-[22px] bg-black/35 p-4">
+              <div key={item.label} className="cm-action-row rounded-[22px] p-4">
                 <div className="flex gap-3">
-                  <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--cm-purple)]" />
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black">
+                    <Icon className="h-5 w-5 text-[var(--cm-purple)]" />
+                  </span>
                   <div className="min-w-0">
                     <p className="font-bold">{item.label}</p>
                     <p className="mt-1 text-sm leading-relaxed text-[var(--cm-text-soft)]">{item.value}</p>
@@ -135,29 +140,29 @@ export default function ShortcutAutomationCard({ onOpenGuide }: ShortcutAutomati
             {isShortcutTokenReady ? templates.captureUrl : '完成浏览器授权后自动生成'}
           </code>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('万能入口 URL', templates.captureUrl, '入口 URL 已复制')} className="cm-card-raised h-12 rounded-[18px] text-sm font-bold disabled:opacity-50">
-              复制 URL
+            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('万能入口 URL', templates.captureUrl, '入口 URL 已复制')} className="cm-card-raised cm-press flex h-12 items-center justify-center gap-2 rounded-[18px] text-sm font-bold disabled:opacity-50">
+              <Icons.Link className="h-4 w-4" /> 复制 URL
             </button>
-            <button type="button" disabled={isTesting || !isShortcutTokenReady} onClick={testShortcutCapture} className="cm-primary h-12 rounded-[18px] text-sm font-bold">
-              {isTesting ? '自检中' : '自检写入'}
+            <button type="button" disabled={isTesting || !isShortcutTokenReady} onClick={testShortcutCapture} className="cm-primary cm-press flex h-12 items-center justify-center gap-2 rounded-[18px] text-sm font-bold">
+              {isTesting ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.CheckCircle2 className="h-4 w-4" />} {isTesting ? '自检中' : '自检写入'}
             </button>
           </div>
         </div>
 
         <div className="mt-4 grid gap-2">
-          <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('完整配置包', templates.packageText, '完整配置包已复制')} className="cm-primary h-[52px] rounded-[20px] text-sm font-black">
-            复制完整配置包
+          <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('完整配置包', templates.packageText, '完整配置包已复制')} className="cm-primary cm-press flex h-[52px] items-center justify-center gap-2 rounded-[20px] text-sm font-black">
+            <Icons.PackageCheck className="h-4 w-4" /> 复制完整配置包
           </button>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('Wallet 模板', templates.walletBody, 'Wallet 模板已复制')} className="cm-card-raised h-12 rounded-[18px] text-sm font-bold disabled:opacity-50">
+            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('Wallet 模板', templates.walletBody, 'Wallet 模板已复制')} className="cm-card-raised cm-press h-12 rounded-[18px] text-sm font-bold disabled:opacity-50">
               Wallet 模板
             </button>
-            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('短信模板', templates.textBody, '短信模板已复制')} className="cm-card-raised h-12 rounded-[18px] text-sm font-bold disabled:opacity-50">
+            <button type="button" disabled={!isShortcutTokenReady} onClick={() => copyTemplate('短信模板', templates.textBody, '短信模板已复制')} className="cm-card-raised cm-press h-12 rounded-[18px] text-sm font-bold disabled:opacity-50">
               短信模板
             </button>
           </div>
-          <button type="button" onClick={onOpenGuide} className="cm-card-raised h-12 rounded-[18px] text-sm font-bold">
-            三步配置说明
+          <button type="button" onClick={onOpenGuide} className="cm-card-raised cm-press flex h-12 items-center justify-center gap-2 rounded-[18px] text-sm font-bold">
+            <Icons.BookOpen className="h-4 w-4" /> 三步配置说明
           </button>
         </div>
       </motion.section>

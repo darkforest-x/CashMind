@@ -76,6 +76,8 @@ export default function AppChrome({
   onActionMenuChange,
   onLoginRequest,
 }: AppChromeProps) {
+  const showBottomControls = canUseApp && (activeTab === 'home' || activeTab === 'stats');
+
   const activateTab = (tab: AppTab) => {
     onTabChange(tab);
     onActionMenuChange(false);
@@ -84,18 +86,19 @@ export default function AppChrome({
   return (
     <>
       <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 px-7 pt-[calc(env(safe-area-inset-top)+18px)]">
-        <div className="mx-auto flex h-10 w-[210px] items-center justify-between rounded-full border border-white/10 bg-black/75 px-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+        <div className="cm-status-pill mx-auto flex h-10 w-[218px] items-center justify-between rounded-full px-3 backdrop-blur-2xl">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--cm-amber)]">
             <Wallet className="h-3.5 w-3.5 text-black" />
           </span>
           <span className="text-[11px] font-semibold text-[var(--cm-green)]">自动入账 +98%</span>
+          <span className="h-2 w-2 rounded-full bg-[var(--cm-green)] shadow-[0_0_18px_rgba(47,234,118,0.75)]" />
         </div>
 
-        <div className="pointer-events-auto mt-7 flex items-center gap-2 overflow-x-auto cm-scrollbar">
+        <nav className="pointer-events-auto mt-7 flex items-center gap-2 overflow-x-auto cm-scrollbar" aria-label="主要导航">
           <button
             type="button"
             onClick={() => onDrawerChange(true)}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--cm-purple)] text-black"
+            className="cm-press grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--cm-purple)] text-black"
             aria-label="打开账户菜单"
           >
             <Sparkles className="h-6 w-6" />
@@ -107,8 +110,9 @@ export default function AppChrome({
                 key={tab.id}
                 type="button"
                 onClick={() => activateTab(tab.id)}
+                aria-current={selected ? 'page' : undefined}
                 className={cn(
-                  'h-11 shrink-0 rounded-full px-5 text-[15px] font-bold transition-transform active:scale-95',
+                  'cm-press h-11 shrink-0 rounded-full px-5 text-[15px] font-bold',
                   selected ? 'cm-chip-active' : 'cm-chip',
                 )}
               >
@@ -116,10 +120,10 @@ export default function AppChrome({
               </button>
             );
           })}
-        </div>
+        </nav>
       </div>
 
-      {canUseApp && (
+      {showBottomControls && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex items-end gap-4 px-7 pb-[calc(env(safe-area-inset-bottom)+18px)]">
           <label className="cm-bottom-float pointer-events-auto flex h-14 min-w-0 flex-1 items-center gap-3 rounded-full px-5">
             <Search className="h-5 w-5 shrink-0 text-[var(--cm-text-muted)]" />
@@ -133,7 +137,7 @@ export default function AppChrome({
           <button
             type="button"
             onClick={() => onActionMenuChange(!actionMenuOpen)}
-            className="cm-primary pointer-events-auto grid h-14 w-14 shrink-0 place-items-center rounded-full shadow-[0_18px_44px_rgba(0,0,0,0.45)] transition-transform active:scale-95"
+            className="cm-primary cm-press pointer-events-auto grid h-14 w-14 shrink-0 place-items-center rounded-full shadow-[0_18px_44px_rgba(0,0,0,0.45)]"
             aria-label={actionMenuOpen ? '快捷操作已展开' : '打开快捷操作'}
           >
             {actionMenuOpen ? <X className="h-7 w-7" /> : <Plus className="h-8 w-8" />}
@@ -162,7 +166,7 @@ export default function AppChrome({
                     exit={{ opacity: 0, x: 18 }}
                     transition={{ delay: index * 0.035 }}
                     onClick={() => activateTab(action.tab)}
-                    className="flex items-center justify-end gap-4 text-right text-2xl font-bold text-white"
+                    className="cm-press flex items-center justify-end gap-4 text-right text-2xl font-bold text-white"
                   >
                     <span>{action.label}</span>
                     <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--cm-purple)] text-black">
@@ -175,7 +179,7 @@ export default function AppChrome({
             <button
               type="button"
               onClick={() => onActionMenuChange(false)}
-              className="absolute bottom-[calc(env(safe-area-inset-bottom)+18px)] right-7 grid h-14 w-14 place-items-center rounded-full bg-[var(--cm-card-raised)] text-white shadow-[0_18px_44px_rgba(0,0,0,0.45)]"
+              className="cm-press absolute bottom-[calc(env(safe-area-inset-bottom)+18px)] right-7 grid h-14 w-14 place-items-center rounded-full bg-[var(--cm-card-raised)] text-white shadow-[0_18px_44px_rgba(0,0,0,0.45)]"
               aria-label="关闭快捷菜单"
             >
               <X className="h-7 w-7" />
@@ -204,7 +208,7 @@ export default function AppChrome({
                 <Sparkles className="h-8 w-8" />
               </div>
               <h2 className="mt-7 text-3xl font-bold">@cashmind</h2>
-              <button type="button" className="mt-9 flex items-center gap-3 text-xl font-semibold" onClick={() => onDrawerChange(false)}>
+              <button type="button" className="cm-press mt-9 flex items-center gap-3 text-xl font-semibold" onClick={() => onDrawerChange(false)}>
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--cm-card)] text-sm">1</span>
                 自动账本 1
               </button>
@@ -212,7 +216,7 @@ export default function AppChrome({
                 {DRAWER_ITEMS.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <button key={item.label} type="button" className="flex items-center gap-6 text-[21px] text-white" onClick={() => onDrawerChange(false)}>
+                    <button key={item.label} type="button" className="cm-press flex items-center gap-6 text-[21px] text-white" onClick={() => onDrawerChange(false)}>
                       <Icon className="h-6 w-6" />
                       {item.label}
                     </button>

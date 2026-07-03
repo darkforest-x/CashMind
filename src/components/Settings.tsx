@@ -128,15 +128,18 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
       </div>
 
       <section className="mt-6">
-        <div className="cm-card overflow-hidden rounded-[28px] p-2">
-          <div className="rounded-[22px] bg-black/35 p-4">
-            <label className="text-xs font-bold text-[var(--cm-text-soft)]">导出月份</label>
-            <input type="month" value={exportMonth} onChange={(event) => setExportMonth(event.target.value)} className="mt-2 w-full bg-transparent text-base font-bold outline-none" />
-          </div>
+        <div className="space-y-3">
+          <label className="cm-action-row flex items-center justify-between rounded-[24px] p-4">
+            <span>
+              <span className="block text-xs font-bold text-[var(--cm-text-soft)]">导出月份</span>
+              <input type="month" value={exportMonth} onChange={(event) => setExportMonth(event.target.value)} className="mt-2 w-full bg-transparent text-base font-bold outline-none" />
+            </span>
+            <span className="cm-status-pill rounded-full px-3 py-1 text-xs font-bold text-[var(--cm-purple)]">CSV</span>
+          </label>
           {rows.map((row) => {
             const Icon = row.icon;
             return (
-              <button key={row.title} type="button" onClick={row.action} className="flex w-full items-center gap-4 rounded-[22px] p-4 text-left transition-colors hover:bg-white/5">
+              <button key={row.title} type="button" onClick={row.action} className="cm-action-row cm-press flex w-full items-center gap-4 rounded-[24px] p-4 text-left">
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-black">
                   <Icon className="h-5 w-5 text-[var(--cm-purple)]" />
                 </span>
@@ -188,7 +191,16 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
                   <h2 className="text-2xl font-black">默认币种</h2>
                   <div className="mt-5 space-y-2">
                     {CURRENCIES.map((currency) => (
-                      <button key={currency} type="button" onClick={() => { setDefaultCurrency(currency); setSheet(null); showToast(`默认币种已切换为 ${currency}`, 'success'); }} className={cn('cm-card flex h-14 w-full items-center justify-between rounded-[22px] px-5 font-bold', defaultCurrency === currency && 'bg-[var(--cm-purple)] text-black')}>
+                      <button
+                        key={currency}
+                        type="button"
+                        onClick={() => {
+                          setDefaultCurrency(currency);
+                          setSheet(null);
+                          showToast(`默认币种已切换为 ${currency}`, 'success');
+                        }}
+                        className={cn('cm-action-row cm-press flex h-14 w-full items-center justify-between rounded-[22px] px-5 font-bold', defaultCurrency === currency && 'bg-[var(--cm-purple)] text-black')}
+                      >
                         {currency}
                         {defaultCurrency === currency && <Icons.Check className="h-5 w-5" />}
                       </button>

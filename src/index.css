@@ -64,6 +64,14 @@ select {
   color: #111113;
 }
 
+.cm-press {
+  transition: transform 100ms ease-out, border-color 100ms ease-out, background-color 100ms ease-out;
+}
+
+.cm-press:active {
+  transform: scale(0.97);
+}
+
 .cm-card {
   border: 1px solid var(--cm-border);
   background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015)), var(--cm-card);
@@ -74,6 +82,18 @@ select {
   border: 1px solid var(--cm-border);
   background: var(--cm-card-raised);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 44px rgba(0,0,0,0.32);
+}
+
+.cm-action-row {
+  border: 1px solid var(--cm-border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018)), var(--cm-card);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.cm-status-pill {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .cm-bottom-float {
