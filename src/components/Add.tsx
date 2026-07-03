@@ -1,249 +1,207 @@
-import React, { useState, useEffect } from 'react';
-import { Transaction, Currency } from '../types';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import * as Icons from 'lucide-react';
-import { cn, getCurrencySymbol } from '../lib/utils';
 import { formatISO } from 'date-fns';
-import { motion, AnimatePresence } from 'motion/react';
-import { useToast } from './Toast';
+import type { Currency, Transaction } from '../types';
+import { MOCK_CATEGORIES } from '../data';
+import { cn, getCurrencySymbol } from '../lib/utils';
 import { apiFetch, hasApiBackend } from '../lib/api';
-import { AiSuggestion, parseAiSuggestions } from '../lib/aiSuggestions';
+import { parseAiSuggestions, type AiSuggestion } from '../lib/aiSuggestions';
+import { useToast } from './Toast';
 import Numpad from './Numpad';
 
-interface AddProps {
-  onAdd: (t: Transaction) => void;
-  onUpdate?: (t: Transaction) => void;
-  initialData?: Transaction | null;
-  onCancelEdit?: () => void;
+type AddProps = {
+  readonly onAdd: (transaction: Transaction) => void;
+  readonly onUpdate?: (transaction: Transaction) => void;
+  readonly initialData?: Transaction | null;
+  readonly onCancelEdit?: () => void;
+};
+
+const CURRENCIES: readonly Currency[] = ['CNY', 'USD', 'EUR', 'JPY'];
+
+function readDefaultCurrency(): Currency {
+  const saved = localStorage.getItem('gqh_default_currency');
+  return CURRENCIES.find((currency) => currency === saved) || 'CNY';
 }
 
 export default function Add({ onAdd, onUpdate, initialData, onCancelEdit }: AddProps) {
-  const [amount, setAmount] = useState(initialData ? initialData.amount.toString() : '0');
+  const [amount, setAmount] = useState(initialData ? String(initialData.amount) : '0');
   const [type, setType] = useState<'expense' | 'income'>(initialData ? initialData.type : 'expense');
-  const [category, setCategory] = useState<string>(initialData ? initialData.category : 'food');
-  const [currency, setCurrency] = useState<Currency>(initialData ? initialData.currency : (localStorage.getItem('gqh_default_currency') as Currency || 'CNY'));
-  const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
-  const [note, setNote] = useState(initialData ? (initialData.note || '') : '');
-  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([
-    { cat: 'food', prob: 100, label: '餐饮美食' }
-  ]);
+  const [category, setCategory] = useState(initialData ? initialData.category : 'food');
+  const [currency, setCurrency] = useState<Currency>(initialData ? initialData.currency : readDefaultCurrency());
+  const [note, setNote] = useState(initialData?.note || '');
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<readonly AiSuggestion[]>([{ cat: 'food', prob: 100, label: '餐饮美食' }]);
   const [isClassifying, setIsClassifying] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0 || !note.trim()) {
-      return;
-    }
+    const numAmount = Number.parseFloat(amount);
+    if (!Number.isFinite(numAmount) || numAmount <= 0 || !note.trim()) return;
 
     const classify = async () => {
       setIsClassifying(true);
       try {
-        if (!hasApiBackend()) {
-          setIsClassifying(false);
-          return;
-        }
-
-        const res = await apiFetch('/api/ai/classify', {
+        if (!hasApiBackend()) return;
+        const response = await apiFetch('/api/ai/classify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: numAmount, note }),
         });
-        if (res.ok) {
-          const suggestions = parseAiSuggestions(await res.json());
-          if (suggestions.length > 0) {
-            setAiSuggestions(suggestions);
-            setCategory(suggestions[0].cat);
-            showToast(`AI 建议分类: ${suggestions[0].label}`, 'info');
-          }
-        } else {
-           showToast('AI 分类失败，请稍后重试', 'error');
+        if (!response.ok) {
+          showToast('AI 分类失败，请稍后重试', 'error');
+          return;
+        }
+        const suggestions = parseAiSuggestions(await response.json());
+        if (suggestions.length > 0) {
+          setAiSuggestions(suggestions);
+          setCategory(suggestions[0].cat);
         }
       } catch (error) {
-        console.error('Failed to classify:', error);
+        console.error('Failed to classify:', error instanceof Error ? error.message : String(error));
         showToast('AI 分类失败，请检查网络', 'error');
       } finally {
         setIsClassifying(false);
       }
     };
 
-    const timer = setTimeout(classify, 800);
-    return () => clearTimeout(timer);
-  }, [amount, note]);
+    const timer = window.setTimeout(classify, 800);
+    return () => window.clearTimeout(timer);
+  }, [amount, note, showToast]);
 
-  const handleNumpad = (val: string) => {
-    if (val === 'C') {
+  const handleNumpad = (value: string) => {
+    if (value === 'C') {
       setAmount('0');
       return;
     }
-    if (val === 'DEL') {
-      setAmount((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
+    if (value === 'DEL') {
+      setAmount((current) => (current.length > 1 ? current.slice(0, -1) : '0'));
       return;
     }
-    if (val === '.') {
-      if (!amount.includes('.')) setAmount((prev) => prev + '.');
+    if (value === '.') {
+      setAmount((current) => (current.includes('.') ? current : `${current}.`));
       return;
     }
-    setAmount((prev) => (prev === '0' ? val : prev + val));
+    setAmount((current) => (current === '0' ? value : `${current}${value}`));
   };
 
   const handleSave = () => {
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) return;
-
-    if (initialData && onUpdate) {
-      onUpdate({
-        ...initialData,
-        amount: numAmount,
-        type,
-        category,
-        note,
-        currency,
-      });
+    const numAmount = Number.parseFloat(amount);
+    if (!Number.isFinite(numAmount) || numAmount <= 0) return;
+    const transaction: Transaction = initialData
+      ? { ...initialData, amount: numAmount, type, category, note, currency }
+      : { id: Math.random().toString(36).substring(7), amount: numAmount, type, category, date: formatISO(new Date()), note, source: 'manual', currency };
+    if (initialData) {
+      onUpdate?.(transaction);
     } else {
-      onAdd({
-        id: Math.random().toString(36).substring(7),
-        amount: numAmount,
-        type,
-        category,
-        date: formatISO(new Date()),
-        note,
-        source: 'manual',
-        currency,
-      });
+      onAdd(transaction);
     }
     setAmount('0');
     setNote('');
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-gray-900 dark:text-white pb-24">
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6 bg-white/40 dark:bg-black/40 backdrop-blur-3xl saturate-200 rounded-b-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border-b border-white/40 dark:border-white/10 relative z-10">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            {initialData && (
-              <button onClick={onCancelEdit} className="p-1 -ml-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                <Icons.ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <h1 className="text-2xl font-semibold tracking-tight">{initialData ? '编辑记录' : 'AI 辅助补记'}</h1>
+    <div className="h-full overflow-y-auto px-7 pb-32 pt-36 text-white cm-scrollbar">
+      <section>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[17px] text-[var(--cm-text-soft)]">{initialData ? '编辑记录' : '新建记录'}</p>
+            <h1 className="text-[30px] font-black">AI 辅助补记</h1>
           </div>
-          <div className="flex bg-white/40 dark:bg-white/10 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-full p-1">
-            <button
-              onClick={() => setType('expense')}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
-                type === 'expense' ? "bg-white/80 dark:bg-black/40 shadow-sm" : "text-gray-600 dark:text-gray-300"
-              )}
-            >
-              支出
+          {initialData && (
+            <button type="button" onClick={onCancelEdit} className="cm-chip grid h-11 w-11 place-items-center rounded-full" aria-label="取消编辑">
+              <Icons.X className="h-5 w-5" />
             </button>
-            <button
-              onClick={() => setType('income')}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
-                type === 'income' ? "bg-white/80 dark:bg-black/40 shadow-sm" : "text-gray-600 dark:text-gray-300"
-              )}
-            >
-              收入
-            </button>
-          </div>
+          )}
         </div>
 
-        <div className="flex flex-col items-center justify-center mb-6">
-          <span className="text-sm text-gray-500 dark:text-gray-400 mb-2">输入金额</span>
-          <div className="flex items-baseline gap-1 relative">
-            <button 
-              onClick={() => setIsCurrencyMenuOpen(!isCurrencyMenuOpen)}
-              className="text-3xl font-medium text-indigo-600 dark:text-indigo-400 hover:opacity-70 transition-opacity"
+        <div className="mt-7 flex justify-center rounded-full bg-[var(--cm-chip)] p-1">
+          {(['expense', 'income'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setType(item)}
+              className={cn('h-11 flex-1 rounded-full text-[15px] font-bold transition-colors', type === item ? 'cm-chip-active' : 'text-[var(--cm-text-soft)]')}
             >
-              {getCurrencySymbol(currency)}
+              {item === 'expense' ? '支出' : '收入'}
             </button>
-            <span className="text-6xl font-bold tracking-tighter">{amount}</span>
-
-            <AnimatePresence>
-              {isCurrencyMenuOpen && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setIsCurrencyMenuOpen(false)}
-                    className="fixed inset-0 z-40"
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                    className="absolute bottom-full left-0 mb-4 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-2xl shadow-xl z-50 p-2 min-w-[100px]"
-                  >
-                    {(['CNY', 'USD', 'EUR', 'JPY'] as Currency[]).map(curr => (
-                      <button
-                        key={curr}
-                        onClick={() => {
-                          setCurrency(curr);
-                          setIsCurrencyMenuOpen(false);
-                        }}
-                        className={cn(
-                          "w-full px-4 py-2 text-left rounded-xl text-sm font-medium transition-colors mb-1 last:mb-0 flex items-center justify-between",
-                          currency === curr ? "bg-indigo-500 text-white" : "hover:bg-black/5 dark:hover:bg-white/10"
-                        )}
-                      >
-                        <span>{curr}</span>
-                        <span className="opacity-60">{getCurrencySymbol(curr)}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+          ))}
         </div>
 
-        {/* AI Suggestions */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-2">
-            <Icons.Sparkles className="w-4 h-4" />
-            <span>AI 智能推测分类</span>
-            {isClassifying && <Icons.Loader2 className="w-3 h-3 animate-spin" />}
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {aiSuggestions.map((s, i) => (
-              <motion.button
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1, duration: 0.3 }}
-                key={s.cat}
-                onClick={() => setCategory(s.cat)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all whitespace-nowrap backdrop-blur-md",
-                  category === s.cat
-                    ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
-                    : "border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/40 text-gray-700 dark:text-gray-300"
-                )}
+        <div className="relative mt-8 text-center">
+          <button type="button" onClick={() => setCurrencyMenuOpen(true)} className="text-4xl font-black text-[var(--cm-purple)]">
+            {getCurrencySymbol(currency)}
+          </button>
+          <span className="ml-2 align-baseline text-[64px] font-black leading-none">{amount}</span>
+        </div>
+      </section>
+
+      <section className="mt-7">
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--cm-purple)]">
+          <Icons.Sparkles className="h-4 w-4" />
+          <span>AI 智能推测分类</span>
+          {isClassifying && <Icons.Loader2 className="h-3 w-3 animate-spin" />}
+        </div>
+        <div className="-mx-7 flex gap-2 overflow-x-auto px-7 pb-2 cm-scrollbar">
+          {MOCK_CATEGORIES.map((item) => {
+            const suggestion = aiSuggestions.find((entry) => entry.cat === item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setCategory(item.id)}
+                className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-bold', category === item.id ? 'cm-chip-active' : 'cm-chip')}
               >
-                <span className="text-sm font-medium">{s.label}</span>
-                <span className="text-xs opacity-60">{s.prob}%</span>
-              </motion.button>
-            ))}
-          </div>
+                {item.name}{suggestion ? ` ${suggestion.prob}%` : ''}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </section>
 
-      {/* Input & Numpad */}
-      <div className="flex-1 flex flex-col px-6 pt-6 pb-4">
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="添加备注..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="w-full bg-white/40 dark:bg-black/40 backdrop-blur-2xl saturate-200 border border-white/40 dark:border-white/10 rounded-2xl px-4 py-4 text-base placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgb(0,0,0,0.2)] transition-all"
-          />
-        </div>
+      <section className="mt-5">
+        <input
+          type="text"
+          placeholder="添加商户、备注或交易来源"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          className="cm-input h-16 w-full rounded-[24px] px-5 text-[16px]"
+        />
+      </section>
 
+      <div className="mt-6">
         <Numpad onInput={handleNumpad} onSave={handleSave} />
       </div>
+
+      {currencyMenuOpen && typeof document !== 'undefined' ? createPortal(
+      <AnimatePresence>
+        {currencyMenuOpen && (
+          <>
+            <motion.button className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm" aria-label="关闭币种选择" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCurrencyMenuOpen(false)} />
+            <motion.div className="cm-sheet fixed bottom-0 left-1/2 z-[91] w-full max-w-md -translate-x-1/2 rounded-t-[36px] p-7 pb-[calc(env(safe-area-inset-bottom)+28px)]" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}>
+              <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-white/25" />
+              <h2 className="text-2xl font-black">选择币种</h2>
+              <div className="mt-5 space-y-2">
+                {CURRENCIES.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => {
+                      setCurrency(item);
+                      setCurrencyMenuOpen(false);
+                    }}
+                    className={cn('cm-card flex h-14 w-full items-center justify-between rounded-[22px] px-5 font-bold', currency === item && 'bg-[var(--cm-purple)] text-black')}
+                  >
+                    <span>{item}</span>
+                    <span>{getCurrencySymbol(item)}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>, document.body) : null}
     </div>
   );
 }

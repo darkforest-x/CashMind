@@ -2,45 +2,51 @@
 
 ## 1. Atmosphere & Identity
 
-CashMind feels like a private mobile finance console: calm, glassy, and personal, with soft depth instead of heavy chrome. The signature is translucent financial cards floating over a pale gradient surface, using a restrained indigo accent for actions and trust.
+CashMind now uses a Phantom-inspired mobile finance surface: black canvas, compact pill navigation, large balance-first hierarchy, rounded graphite cards, purple action accents, bottom search plus floating action button, side account drawer, and bottom sheets for decisions.
+
+This is not a crypto clone. The borrowed language is interaction and material: friendly, dark, fast, thumb-first, and finance-native. The product content remains automatic bookkeeping.
 
 ## 2. Color
 
 ### Palette
 
-| Role | Token | Light | Dark | Usage |
-|------|-------|-------|------|-------|
-| Surface/page | `--surface-page` | `#F8FAFC` | `#09090B` | App background |
-| Surface/glass | `--surface-glass` | `rgba(255,255,255,0.40)` | `rgba(0,0,0,0.40)` | Primary cards |
-| Surface/field | `--surface-field` | `rgba(255,255,255,0.50)` | `rgba(0,0,0,0.50)` | Status rows and compact fields |
-| Surface/elevated | `--surface-elevated` | `#FFFFFF` | `#18181B` | Modals |
-| Text/primary | `--text-primary` | `#111827` | `#FFFFFF` | Headings and body |
-| Text/secondary | `--text-secondary` | `#4B5563` | `#D1D5DB` | Labels and control text |
-| Text/muted | `--text-muted` | `#6B7280` | `#9CA3AF` | Captions and hints |
-| Border/glass | `--border-glass` | `rgba(255,255,255,0.40)` | `rgba(255,255,255,0.10)` | Glass card borders |
-| Border/subtle | `--border-subtle` | `rgba(0,0,0,0.05)` | `rgba(255,255,255,0.10)` | Dividers |
-| Accent/primary | `--accent-primary` | `#4F46E5` | `#6366F1` | Primary actions |
-| Accent/soft | `--accent-soft` | `rgba(99,102,241,0.10)` | `rgba(99,102,241,0.20)` | Callout buttons |
-| Status/error | `--status-error` | `#EF4444` | `#F87171` | Destructive actions |
+| Role | Token | Value | Usage |
+|------|-------|-------|-------|
+| Canvas | `--cm-black` | `#050505` | App background |
+| Shell | `--cm-shell` | `#0A0A0B` | Phone frame and overlay panels |
+| Card | `--cm-card` | `#1C1C1E` | Primary cards and list rows |
+| Card raised | `--cm-card-raised` | `#242426` | Sheets, drawers, selected rows |
+| Chip | `--cm-chip` | `#19191A` | Inactive tabs and compact controls |
+| Border | `--cm-border` | `rgba(255,255,255,0.08)` | Hairline separation |
+| Text primary | `--cm-text` | `#F7F7F8` | Main text |
+| Text secondary | `--cm-text-soft` | `#A8A8AE` | Labels and metadata |
+| Text muted | `--cm-text-muted` | `#6F6F76` | Disabled and helper text |
+| Purple | `--cm-purple` | `#AB9BFF` | Primary action, active tab |
+| Purple strong | `--cm-purple-strong` | `#8B6DFF` | Pressed and focus states |
+| Green | `--cm-green` | `#2FEA76` | Income, positive deltas |
+| Red | `--cm-red` | `#FF4D6A` | Expense risk and delete |
+| Amber | `--cm-amber` | `#FF9F1C` | Wallet/source highlights |
 
 ### Rules
 
-- Indigo is functional, not decorative: primary actions, selected nav, trusted setup states.
-- Glass cards use tint, saturation, blur, border, and shadow together.
-- Status color appears only when communicating result or risk.
+- Black is the default surface. There is no pale/light theme for the Phantom shell.
+- Purple is used for selected navigation, the primary CTA, and automation affordances.
+- Green and red only describe money movement or risk.
+- Cards are solid graphite with a subtle border, not translucent glass.
 
 ## 3. Typography
 
 ### Scale
 
-| Level | Size | Weight | Line Height | Tracking | Usage |
-|-------|------|--------|-------------|----------|-------|
-| H1 | 24px | 600 | 1.25 | 0 | Page titles |
-| H2 | 18px | 600 | 1.35 | 0 | Section titles |
-| H3 | 16px | 600 | 1.4 | 0 | Card titles |
-| Body | 14px | 400 | 1.5 | 0 | Default copy |
-| Body/sm | 12px | 400 | 1.4 | 0 | Help text |
-| Caption | 10px | 500 | 1.3 | 0 | Metadata and tiny labels |
+| Level | Size | Weight | Line Height | Usage |
+|-------|------|--------|-------------|-------|
+| Display | 56px | 750 | 1.0 | Main balance and amount entry |
+| H1 | 30px | 700 | 1.15 | Section titles |
+| H2 | 22px | 700 | 1.25 | Cards and sheets |
+| H3 | 17px | 650 | 1.35 | Row titles |
+| Body | 15px | 450 | 1.45 | Default copy |
+| Body/sm | 13px | 450 | 1.35 | Metadata |
+| Caption | 11px | 600 | 1.25 | Tiny labels |
 
 ### Font Stack
 
@@ -49,9 +55,9 @@ CashMind feels like a private mobile finance console: calm, glassy, and personal
 
 ### Rules
 
-- No negative letter spacing.
-- Chinese labels should stay compact and avoid one-character orphan lines.
-- Body text never drops below 12px unless it is metadata already supported by icon context.
+- Letter spacing stays `0`.
+- Large numbers are the hero. Keep labels short and below or above the number.
+- Chinese labels must not wrap to one-character orphan lines. Short labels use `white-space: nowrap`.
 
 ## 4. Spacing & Layout
 
@@ -61,92 +67,107 @@ All spacing derives from 4px.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--space-1` | 4px | Dense icon gaps |
-| `--space-2` | 8px | Compact groups |
-| `--space-3` | 12px | Button padding |
-| `--space-4` | 16px | List items |
-| `--space-5` | 20px | Card internal rhythm |
-| `--space-6` | 24px | Page gutters and large cards |
-| `--space-8` | 32px | Major vertical separation |
+| `--cm-space-1` | 4px | Icon nudge |
+| `--cm-space-2` | 8px | Dense gaps |
+| `--cm-space-3` | 12px | Chip padding |
+| `--cm-space-4` | 16px | Row rhythm |
+| `--cm-space-5` | 20px | Card padding |
+| `--cm-space-6` | 24px | Page gutter |
+| `--cm-space-8` | 32px | Section gaps |
 
 ### Grid
 
-- Primary target: mobile viewport between 375px and 430px.
-- Page gutter: 24px.
-- Cards are full-width within the mobile gutter.
-- Bottom navigation is fixed and content pads with `pb-24`.
-
-### Rules
-
-- All icon buttons and action rows keep stable height.
-- Setup controls use one-column layouts on mobile; two-column grids are allowed only for short labels.
+- Primary target: 375px to 430px mobile viewport.
+- Page gutter: 28px on the Phantom shell.
+- Horizontal modules scroll instead of compressing.
+- Bottom search and FAB reserve 96px of safe area.
 
 ## 5. Components
 
-### Glass Card
+### Phantom Shell
 
-- **Structure**: rounded container, glass background, backdrop blur, subtle border, soft shadow.
-- **Variants**: standard card, settings card, modal body.
-- **Spacing**: 24px outer padding for setup cards, 8px for dense list cards.
-- **States**: default, hover for clickable rows.
-- **Accessibility**: contrast relies on text opacity and background tint; never place pale text on pale tint.
-- **Motion**: enters with 20px vertical offset and opacity fade.
+- **Structure**: black phone canvas, top ticker/status pill, avatar, pill tabs, content, bottom search, floating action button.
+- **States**: tab selected/inactive, FAB expanded/collapsed, drawer open/closed.
+- **Motion**: tab/page changes use opacity, vertical offset, and blur.
 
-### Automation Status Row
+### Pill Tabs
 
-- **Structure**: icon, label, status text.
-- **Variants**: browser authorization, app access secret, shortcut secret.
-- **Spacing**: 12px row padding, 12px icon gap.
-- **States**: checking, authorized/configured, locked, unavailable.
-- **Accessibility**: status text is explicit and never relies on color alone.
-- **Motion**: no layout animation.
+- **Structure**: avatar chip plus four rounded tabs.
+- **Selected**: purple fill with black text.
+- **Inactive**: graphite fill with soft text.
+- **Sizing**: 44px minimum height, no wrapping.
 
-### Shortcut Automation Card
+### Balance Hero
 
-- **Structure**: header, automation status rows, universal capture URL, self-test, copy actions, guide entry, manual copy fallback panel.
-- **Variants**: normal, testing state, and manual copy fallback when the system blocks automatic clipboard access.
-- **Spacing**: 24px card padding, 16px stacked groups, 8px button grid.
-- **States**: default, hover, disabled until shortcut token is available, disabled while testing, success/info/error toast.
-- **Accessibility**: every icon button has text; loading state keeps label visible.
-- **Motion**: card uses standard mount motion; loader spins only during request.
+- **Structure**: account selector, large value, subtitle, primary CTA, four quick action tiles.
+- **CashMind mapping**: total net balance, monthly expense, current budget, automation health.
+- **Motion**: no decorative animation; value remains stable.
 
-### Modal
+### Finance Cards
 
-- **Structure**: scrim, elevated panel, fixed header, scrollable content.
-- **Variants**: tutorial, privacy, app-store, budget, currency.
-- **Spacing**: 24px content padding.
-- **States**: open and exit animation.
-- **Accessibility**: close button is visible; current implementation does not yet trap focus.
-- **Motion**: opacity and transform only.
+- **Structure**: rounded 24px to 28px graphite card, icon coin, title, metric, delta.
+- **Variants**: horizontal source card, insight card, settings list card, chart panel.
+- **States**: tap scale and tonal raise only.
+
+### Bottom Search
+
+- **Structure**: fixed pill input at bottom-left with search icon.
+- **Behavior**: on Home, filters transaction list; elsewhere remains a global-looking search affordance.
+- **Sizing**: leaves room for FAB at bottom-right.
+
+### Floating Action Menu
+
+- **Structure**: purple circular FAB; expanded menu uses blurred page scrim and right-aligned actions.
+- **Actions**: 手动补记, 自动化, 设置预算, 快捷说明.
+- **Motion**: opacity + transform only.
+
+### Bottom Sheet
+
+- **Structure**: blurred dark scrim, rounded top sheet, drag handle, close icon or cancel action.
+- **Variants**: transaction actions, settings modals, budget/currency selectors.
+- **Accessibility**: visible close button; focus trap is accepted debt for 1.0.
+
+### Account Drawer
+
+- **Structure**: left slide panel with avatar, handle, account row, profile/history/settings/support rows.
+- **Motion**: panel slides from left; content behind is dimmed and shifted visually by overlay only.
 
 ## 6. Motion & Interaction
 
 | Type | Duration | Easing | Usage |
 |------|----------|--------|-------|
-| Micro | 100-150ms | ease-out | Tap scale, hover tint |
-| Standard | 200-300ms | ease-in-out | Modal and row transitions |
-| Emphasis | 400ms | ease-in-out | Section card entry |
+| Tap | 100ms | ease-out | Buttons and tiles |
+| Page | 220ms | ease-out | Tab changes |
+| Sheet | 280ms | spring/ease-out | Bottom sheets |
+| Drawer | 260ms | ease-out | Side drawer |
 
 Rules:
 
-- Animate transform and opacity only.
-- Do not animate layout dimensions.
-- Hover and active states must not shift layout.
+- Animate `transform`, `opacity`, and `filter` only.
+- Hover/tap states must communicate clickability.
+- No decorative bouncing or idle motion.
 
 ## 7. Depth & Surface
 
 ### Strategy
 
-Mixed glass: translucent fills, blur, saturation, thin borders, and soft shadows.
+Solid dark material with subtle edges and larger-radius cards.
 
 | Level | Value | Usage |
 |-------|-------|-------|
-| Card | `0 8px 30px rgb(0,0,0,0.04)` | Light mode cards |
-| Card/dark | `0 8px 30px rgb(0,0,0,0.20)` | Dark mode cards |
-| Modal | `0 25px 50px -12px rgb(0,0,0,0.25)` | Dialogs |
+| Card | `inset 0 1px 0 rgba(255,255,255,0.04)` | Graphite cards |
+| Floating | `0 18px 44px rgba(0,0,0,0.45)` | Bottom search and FAB |
+| Sheet | `0 -24px 70px rgba(0,0,0,0.55)` | Bottom sheets |
+| Drawer | `28px 0 70px rgba(0,0,0,0.55)` | Account drawer |
 
 Rules:
 
-- Cards should not be nested inside cards except controls framed inside settings cards.
-- Do not add decorative orbs or bokeh blobs.
-- Use border plus tint to separate surfaces before increasing shadow.
+- Avoid nested cards inside cards; lists are rows on one parent surface.
+- Avoid decorative orbs and bokeh blobs.
+- If a component appears twice, use a shared CSS utility or primitive.
+
+## Reference Notes
+
+- Phantom official positioning: money app for trading, predictions, move money, security, and 20M+ community.
+- Phantom mobile screenshots show a dark balance-first wallet, top navigation/chips, quick action tiles, bottom tab/search patterns, action sheets, and large rounded graphite cards.
+- Phantom brand notes describe purple as a core brand color and the identity as friendly, trustworthy, approachable, expressive, and fun.
