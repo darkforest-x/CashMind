@@ -141,21 +141,24 @@ export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthor
           <div className="grid h-16 w-16 place-items-center rounded-full bg-[var(--cm-purple)] text-black">
             <Icons.Sparkles className="h-8 w-8" />
           </div>
-          <h1 className="mt-6 text-[34px] font-black">{isApiBackend ? '连接个人服务' : mode === 'register' ? '创建账号' : '欢迎回来'}</h1>
+          <h1 className="mt-6 text-[34px] font-black">{isApiBackend ? '授权当前浏览器' : mode === 'register' ? '创建账号' : '欢迎回来'}</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-[var(--cm-text-soft)]">
-            {isApiBackend ? '授权当前浏览器后即可读取、编辑和保存账单。' : '登录后同步你的自动账本。'}
+            {isApiBackend ? '这不是快捷指令配置。授权一次后，网页才能读取、编辑和保存你的账单。' : '登录后同步你的 AI 自动账本。'}
           </p>
         </motion.div>
 
         {isApiBackend ? (
           <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSelfHostedAuth} className="mt-8 space-y-4">
+            <div className="cm-action-row rounded-[22px] p-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
+              可以不配吗？公网 VPS 不建议关闭授权，否则别人打开地址就可能读取或修改账本。正常只需第一次打开授权链接，之后不用再填。
+            </div>
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">服务授权码</span>
+              <span className="mb-2 block text-sm font-bold text-[var(--cm-text-soft)]">兜底授权码</span>
               <input
                 type="password"
                 value={setupToken}
                 onChange={(event) => setSetupToken(event.target.value)}
-                placeholder="粘贴 VPS .env 里的 SETUP_TOKEN"
+                placeholder="没有一键授权链接时再粘贴"
                 autoComplete="one-time-code"
                 className="cm-input h-14 w-full rounded-[22px] px-5 text-[16px]"
               />
@@ -164,7 +167,7 @@ export default function Login({ isApiBackend = false, onBack, onSelfHostedAuthor
               {loading ? '连接中' : '完成授权'}
             </button>
             <div className="cm-action-row rounded-[22px] p-4 text-sm leading-relaxed text-[var(--cm-text-soft)]">
-              打开包含 setup 参数的服务端设置链接也会自动完成授权。
+              部署完成后会生成一个包含 setup 参数的授权链接。用手机 Safari 打开它，会自动完成这里的授权。
             </div>
           </motion.form>
         ) : (

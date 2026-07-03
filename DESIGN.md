@@ -2,9 +2,11 @@
 
 ## 1. Atmosphere & Identity
 
-CashMind now uses a Phantom-inspired mobile finance surface: black canvas, compact pill navigation, large balance-first hierarchy, rounded graphite cards, purple action accents, bottom search plus floating action button, side account drawer, and bottom sheets for decisions.
+AI 管钱花 uses a Phantom-inspired mobile finance surface: black canvas, compact pill navigation, large balance-first hierarchy, rounded graphite cards, purple action accents, bottom search plus floating action button, side account drawer, and bottom sheets for decisions.
 
 This is not a crypto clone. The borrowed language is interaction and material: friendly, dark, fast, thumb-first, and finance-native. The product content remains automatic bookkeeping.
+
+The PWA icon must use the same black/purple system: dark rounded-square base, purple AI sparkle mark, and a small finance cue. Do not use external stock icons or white-background app icons.
 
 ## 2. Color
 

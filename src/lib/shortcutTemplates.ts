@@ -21,26 +21,31 @@ function getTokenizedCaptureUrl(captureUrl: string | null, shortcutToken: string
 export function buildShortcutTemplates(input: ShortcutTemplateInput): ShortcutTemplateBundle {
   const captureUrl = getTokenizedCaptureUrl(input.captureUrl, input.shortcutToken);
   const walletBody = JSON.stringify({
-    amount: 'Shortcut Input 的 Amount',
-    merchant: 'Shortcut Input 的 Merchant',
-    card: 'Shortcut Input 的 Card',
+    amount: '交易金额',
+    merchant: '商户名称',
+    card: '卡片或账户',
     currency: 'CNY',
     source: 'wallet',
   }, null, 2);
   const textBody = JSON.stringify({
-    text: 'Shortcut Input',
+    text: '短信、邮件、通知或 OCR 识别出的完整文本',
     source: 'sms',
   }, null, 2);
   const packageText = [
-    'CashMind 快捷指令配置包',
+    'AI 管钱花快捷指令配置包',
     '',
-    '通用入口 URL:',
+    '这套配置只负责写入流水。浏览器读取和编辑账单需要先授权一次。',
+    '',
+    '万能入口 URL:',
     captureUrl,
     '',
-    '动作: 获取 URL 内容',
-    '方法: POST',
-    '请求体: JSON',
-    'Headers: 不需要填',
+    '快捷指令动作:',
+    '1. 新建自动化，触发条件可选 Wallet、短信、邮件或 OCR 文本。',
+    '2. 添加动作: 获取 URL 内容。',
+    '3. URL: 粘贴上面的万能入口 URL。',
+    '4. 方法: POST。',
+    '5. 请求正文: JSON。',
+    '6. Headers: 不需要填。',
     '',
     'Wallet / Apple Pay 请求体:',
     walletBody,

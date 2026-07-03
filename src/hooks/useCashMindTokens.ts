@@ -164,6 +164,16 @@ export function useCashMindTokens() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    window.addEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(APP_ACCESS_TOKEN_UPDATED_EVENT, refresh);
+    };
+  }, [refresh]);
+
   const shortcutTokenStatusText = useMemo(() => {
     const configuredText = shortcutToken ? '已自动封装到快捷指令模板' : '服务端已自动生成，授权后自动封装';
     return buildTokenStatusText(shortcutTokenStatus, shortcutTokenHint, {

@@ -642,6 +642,19 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.get("/owner/setup/:token", (req, res) => {
+    const appAccessToken = process.env.APP_ACCESS_TOKEN;
+    const ownerSetupToken = process.env.OWNER_SETUP_TOKEN;
+    if (!appAccessToken || !ownerSetupToken || req.params.token !== ownerSetupToken) {
+      res.status(404).send("Not found");
+      return;
+    }
+
+    const isSecureRequest = req.secure || req.get("x-forwarded-proto") === "https";
+    setAppSessionCookie(res, appAccessToken, isSecureRequest);
+    res.redirect("/?authorized=1");
+  });
+
   appApi.get("/transactions", (req, res) => {
     const stmt = db.prepare("SELECT * FROM transactions ORDER BY date DESC");
     const transactions = stmt.all();
@@ -985,8 +998,15 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    app.use((req, res, next) => {
+      if (req.path === "/" || req.path === "/index.html" || req.path === "/sw.js" || req.path === "/manifest.json") {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+      next();
+    });
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

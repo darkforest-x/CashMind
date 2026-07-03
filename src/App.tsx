@@ -151,7 +151,7 @@ export default function App() {
     if (activeTab === 'stats') {
       return <Stats transactions={transactions} budgets={budgets} />;
     }
-    return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={updateBudgets} />;
+    return <Settings transactions={transactions} budgets={budgets} onUpdateBudgets={updateBudgets} onAuthorizeRequest={() => setShowLogin(true)} />;
   };
 
   return (

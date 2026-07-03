@@ -131,7 +131,7 @@ export default function AppChrome({
             <input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="搜索 CashMind"
+              placeholder="搜索 AI 管钱花"
               className="min-w-0 flex-1 bg-transparent text-[15px] text-[var(--cm-text)] outline-none placeholder:text-[var(--cm-text-muted)]"
             />
           </label>
