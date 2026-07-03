@@ -129,23 +129,24 @@ export function useCashMindData() {
   const updateBudgets = useCallback(async (newBudgets: Budget[]) => {
     try {
       if (isApiBackend) {
-        await selfHosted.updateBudgets(newBudgets);
-        return;
+        return await selfHosted.updateBudgets(newBudgets);
       }
 
       if (!user) {
-        return;
+        return false;
       }
 
       await Promise.all(newBudgets.map((budget) => {
         const budgetId = `${user.uid}_${budget.month}`;
         return setDoc(doc(db, 'budgets', budgetId), { ...budget, id: budgetId, userId: user.uid });
       }));
+      return true;
     } catch (error) {
       console.error('Failed to update budget:', getErrorMessage(error));
-      throw error;
+      showToast('预算设置失败，请检查服务状态', 'error');
+      return false;
     }
-  }, [isApiBackend, selfHosted, user]);
+  }, [isApiBackend, selfHosted, showToast, user]);
 
   const logoutUser = useCallback(async () => {
     if (isApiBackend) {

@@ -10,7 +10,6 @@ import {
   Settings,
   Sparkles,
   User,
-  Wallet,
   X,
   Zap,
   type LucideIcon,
@@ -18,6 +17,7 @@ import {
 import { cn } from '../lib/utils';
 
 export type AppTab = 'home' | 'add' | 'stats' | 'settings';
+export type DrawerAction = 'profile' | 'history' | 'settings' | 'help';
 
 type AppChromeProps = {
   readonly activeTab: AppTab;
@@ -29,7 +29,7 @@ type AppChromeProps = {
   readonly onTabChange: (tab: AppTab) => void;
   readonly onDrawerChange: (open: boolean) => void;
   readonly onActionMenuChange: (open: boolean) => void;
-  readonly onLoginRequest: () => void;
+  readonly onDrawerAction: (action: DrawerAction) => void;
 };
 
 type TabItem = {
@@ -58,11 +58,11 @@ const ACTIONS: readonly ActionItem[] = [
 ];
 
 const DRAWER_ITEMS = [
-  { label: '个人资料', icon: User },
-  { label: '历史记录', icon: Clock3 },
-  { label: '设置', icon: Settings },
-  { label: '帮助与支持', icon: LifeBuoy },
-] satisfies readonly { readonly label: string; readonly icon: LucideIcon }[];
+  { label: '个人资料', icon: User, action: 'profile' },
+  { label: '历史记录', icon: Clock3, action: 'history' },
+  { label: '设置', icon: Settings, action: 'settings' },
+  { label: '帮助与支持', icon: LifeBuoy, action: 'help' },
+] satisfies readonly { readonly label: string; readonly icon: LucideIcon; readonly action: DrawerAction }[];
 
 export default function AppChrome({
   activeTab,
@@ -74,7 +74,7 @@ export default function AppChrome({
   onTabChange,
   onDrawerChange,
   onActionMenuChange,
-  onLoginRequest,
+  onDrawerAction,
 }: AppChromeProps) {
   const showBottomControls = canUseApp && (activeTab === 'home' || activeTab === 'stats');
 
@@ -83,18 +83,19 @@ export default function AppChrome({
     onActionMenuChange(false);
   };
 
+  const activateDrawerAction = (action: DrawerAction) => {
+    onDrawerChange(false);
+    if (action === 'settings') {
+      onTabChange('settings');
+      return;
+    }
+    onDrawerAction(action);
+  };
+
   return (
     <>
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 px-7 pt-[calc(env(safe-area-inset-top)+18px)]">
-        <div className="cm-status-pill mx-auto flex h-10 w-[218px] items-center justify-between rounded-full px-3 backdrop-blur-2xl">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--cm-amber)]">
-            <Wallet className="h-3.5 w-3.5 text-black" />
-          </span>
-          <span className="text-[11px] font-semibold text-[var(--cm-green)]">自动入账 +98%</span>
-          <span className="h-2 w-2 rounded-full bg-[var(--cm-green)] shadow-[0_0_18px_rgba(47,234,118,0.75)]" />
-        </div>
-
-        <nav className="pointer-events-auto mt-7 flex items-center gap-2 overflow-x-auto cm-scrollbar" aria-label="主要导航">
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 px-7 pt-[calc(env(safe-area-inset-top)+22px)]">
+        <nav className="pointer-events-auto flex items-center gap-2 overflow-x-auto cm-scrollbar" aria-label="主要导航">
           <button
             type="button"
             onClick={() => onDrawerChange(true)}
@@ -208,7 +209,7 @@ export default function AppChrome({
                 <Sparkles className="h-8 w-8" />
               </div>
               <h2 className="mt-7 text-3xl font-bold">@cashmind</h2>
-              <button type="button" className="cm-press mt-9 flex items-center gap-3 text-xl font-semibold" onClick={() => onDrawerChange(false)}>
+              <button type="button" className="cm-press mt-9 flex items-center gap-3 text-xl font-semibold" onClick={() => activateDrawerAction('profile')}>
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--cm-card)] text-sm">1</span>
                 自动账本 1
               </button>
@@ -216,7 +217,7 @@ export default function AppChrome({
                 {DRAWER_ITEMS.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <button key={item.label} type="button" className="cm-press flex items-center gap-6 text-[21px] text-white" onClick={() => onDrawerChange(false)}>
+                    <button key={item.label} type="button" className="cm-press flex items-center gap-6 text-[21px] text-white" onClick={() => activateDrawerAction(item.action)}>
                       <Icon className="h-6 w-6" />
                       {item.label}
                     </button>
@@ -227,16 +228,6 @@ export default function AppChrome({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {!canUseApp && (
-        <button
-          type="button"
-          onClick={onLoginRequest}
-          className="cm-primary absolute bottom-[calc(env(safe-area-inset-bottom)+24px)] left-7 right-7 z-40 h-14 rounded-full text-[16px] font-bold"
-        >
-          连接个人服务
-        </button>
-      )}
     </>
   );
 }

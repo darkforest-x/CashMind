@@ -86,7 +86,7 @@ All spacing derives from 4px.
 
 ### Phantom Shell
 
-- **Structure**: black phone canvas, top ticker/status pill, avatar, pill tabs, content, bottom search, floating action button.
+- **Structure**: black phone canvas, app navigation, service state inside content, pill tabs, content, bottom search, floating action button.
 - **States**: tab selected/inactive, FAB expanded/collapsed, drawer open/closed.
 - **Motion**: tab/page changes use opacity, vertical offset, and blur.
 
@@ -179,6 +179,7 @@ Rules:
 - Avoid decorative orbs and bokeh blobs.
 - If a component appears twice, use a shared CSS utility or primitive.
 - Bottom floating controls must not cover the primary reading target; long pages reserve extra bottom padding and sheets portal above the shell.
+- Never render fake iOS system chrome, status bars, or Dynamic Island pills inside the app surface.
 
 ## Reference Notes
 

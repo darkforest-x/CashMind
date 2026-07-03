@@ -4,13 +4,16 @@ import { Lock } from 'lucide-react';
 import type { Transaction } from './types';
 import { useCashMindData } from './hooks/useCashMindData';
 import { useSetupAuthorization } from './hooks/useSetupAuthorization';
-import AppChrome, { type AppTab } from './components/AppChrome';
+import AppChrome, { type AppTab, type DrawerAction } from './components/AppChrome';
+import DrawerInfoSheet from './components/DrawerInfoSheet';
 
 const Home = lazy(() => import('./components/Home'));
 const Add = lazy(() => import('./components/Add'));
 const Stats = lazy(() => import('./components/Stats'));
 const Settings = lazy(() => import('./components/Settings'));
 const Login = lazy(() => import('./components/Login'));
+
+type DrawerPanel = Exclude<DrawerAction, 'settings'>;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('home');
@@ -19,6 +22,7 @@ export default function App() {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [drawerPanel, setDrawerPanel] = useState<DrawerPanel | null>(null);
   const {
     transactions,
     budgets,
@@ -31,7 +35,7 @@ export default function App() {
     deleteTransaction,
     updateBudgets,
   } = useCashMindData();
-  const canUseApp = isApiBackend || Boolean(user);
+  const canUseApp = isApiBackend ? !needsAppAuthorization : Boolean(user);
 
   const goToTab = (tab: AppTab) => {
     setEditingTransaction(null);
@@ -40,17 +44,11 @@ export default function App() {
 
   const handleSetupAuthorized = useCallback(() => {
     setEditingTransaction(null);
-    setActiveTab('settings');
+    setShowLogin(false);
+    setActiveTab('home');
   }, []);
 
   useSetupAuthorization(handleSetupAuthorized);
-
-  useEffect(() => {
-    if (isApiBackend && needsAppAuthorization) {
-      setEditingTransaction(null);
-      setActiveTab('settings');
-    }
-  }, [isApiBackend, needsAppAuthorization]);
 
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('gqh_dark_mode');
@@ -76,6 +74,24 @@ export default function App() {
     setActiveTab('add');
   };
 
+  const handleDrawerAction = (action: DrawerAction) => {
+    setActionMenuOpen(false);
+    if (action === 'settings') {
+      setDrawerPanel(null);
+      setActiveTab('settings');
+      return;
+    }
+    setDrawerPanel(action);
+  };
+
+  const handleAutomationRequest = () => {
+    if (!canUseApp) {
+      setShowLogin(true);
+      return;
+    }
+    setActiveTab('settings');
+  };
+
   const renderLockedState = () => (
     <div className="flex h-full flex-col items-center justify-center px-8 pb-24 text-center text-white">
       <div className="cm-card grid h-20 w-20 place-items-center rounded-[28px]">
@@ -93,7 +109,11 @@ export default function App() {
     if (showLogin && !user) {
       return (
         <div className="relative z-50 h-full w-full bg-black">
-          <Login onBack={() => setShowLogin(false)} />
+          <Login
+            isApiBackend={isApiBackend}
+            onBack={() => setShowLogin(false)}
+            onSelfHostedAuthorized={handleSetupAuthorized}
+          />
         </div>
       );
     }
@@ -107,7 +127,9 @@ export default function App() {
           budgets={budgets}
           user={user}
           backendMode={isApiBackend}
+          needsAuthorization={needsAppAuthorization}
           onLoginRequest={() => setShowLogin(true)}
+          onAutomationRequest={handleAutomationRequest}
           searchQuery={searchQuery}
         />
       );
@@ -174,9 +196,16 @@ export default function App() {
             onTabChange={goToTab}
             onDrawerChange={setDrawerOpen}
             onActionMenuChange={setActionMenuOpen}
-            onLoginRequest={() => setShowLogin(true)}
+            onDrawerAction={handleDrawerAction}
           />
         )}
+        <DrawerInfoSheet
+          panel={drawerPanel}
+          transactions={transactions}
+          isApiBackend={isApiBackend}
+          needsAppAuthorization={needsAppAuthorization}
+          onClose={() => setDrawerPanel(null)}
+        />
       </div>
     </div>
   );

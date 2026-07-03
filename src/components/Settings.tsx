@@ -11,7 +11,7 @@ import ShortcutAutomationCard from './ShortcutAutomationCard';
 type SettingsProps = {
   readonly transactions?: readonly Transaction[];
   readonly budgets?: readonly Budget[];
-  readonly onUpdateBudgets?: (budgets: Budget[]) => Promise<void> | void;
+  readonly onUpdateBudgets?: (budgets: Budget[]) => Promise<boolean | void> | boolean | void;
 };
 
 type Sheet = 'tutorial' | 'privacy' | 'pwa' | 'budget' | 'currency' | null;
@@ -99,7 +99,10 @@ export default function Settings({ transactions = [], budgets = [], onUpdateBudg
     try {
       const currentMonth = format(new Date(), 'yyyy-MM');
       const currentBudget = budgets.find((budget) => budget.month === currentMonth);
-      await onUpdateBudgets([{ id: currentBudget?.id || currentMonth, amount, month: currentMonth }, ...budgets.filter((budget) => budget.month !== currentMonth)]);
+      const saved = await onUpdateBudgets([{ id: currentBudget?.id || currentMonth, amount, month: currentMonth }, ...budgets.filter((budget) => budget.month !== currentMonth)]);
+      if (saved === false) {
+        return;
+      }
       showToast('预算设置成功', 'success');
       setSheet(null);
     } catch (error) {
